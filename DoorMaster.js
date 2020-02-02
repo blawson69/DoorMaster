@@ -14,7 +14,7 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '1.0',
+    var version = '1.0.1',
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -461,16 +461,16 @@ var DoorMaster = DoorMaster || (function () {
 
         if (door) {
             var closed_token = getObj('graphic', door.closed_id);
-            closed_token.set({layer: 'objects', name: 'Closed', represents: '', aura1_radius: '', aura2_radius: '', bar1_value: door.condition, bar1_max: door.visibility, bar2_value: door.lockDC, bar2_max: door.breakDC, bar3_value: '', bar3_max: ''});
+            if (closed_token) closed_token.set({layer: 'objects', name: 'Closed', represents: '', aura1_radius: '', aura2_radius: '', bar1_value: door.condition, bar1_max: door.visibility, bar2_value: door.lockDC, bar2_max: door.breakDC, bar3_value: '', bar3_max: ''});
             var open_token = getObj('graphic', door.open_id);
-            open_token.set({layer: 'objects', name: 'Open', represents: '', aura1_radius: '', aura2_radius: ''});
+            if (open_token) open_token.set({layer: 'objects', name: 'Open', represents: '', aura1_radius: '', aura2_radius: ''});
             var switch_token = getObj('graphic', door.switch_id);
             if (switch_token) switch_token.set({layer: 'objects', name: 'Switch', represents: '', aura1_radius: '', aura2_radius: ''});
             var broken_token = getObj('graphic', door.broken_id);
             if (broken_token) broken_token.set({layer: 'objects', name: 'Broken'});
             _.each(door.paths, function (path_id) {
                 var path = getObj('path', path_id);
-                path.set({layer: 'objects'});
+                if (path) path.set({layer: 'objects'});
             });
 
             state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.open_id; });
