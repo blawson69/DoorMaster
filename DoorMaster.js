@@ -14,7 +14,7 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '1.0.1',
+    var version = '2.0',
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -96,6 +96,11 @@ var DoorMaster = DoorMaster || (function () {
 							commandDoorStatus(msg);
 						}
 						break;
+					case 'link':
+						if (playerIsGM(msg.playerid)) {
+							commandLinkDoors(msg);
+						}
+						break;
 				}
 			}
 		}
@@ -152,11 +157,11 @@ var DoorMaster = DoorMaster || (function () {
 	},
 
     commandHelp = function (msg) {
-        var message = '<p><b>Use Door</b><br>This button is used to try a door, of course. If it is unlocked, it will simply open or close the door. If the door is locked, stuck or anything else, you will notified.</p>';
-        message += '<p><b>Pick Lock</b><br>Use this button to try and pick the lock of a locked door. If you control more than one character you will be asked to select the one making the attempt. Then you will select the skill that character wants to use, and indicate if you have Advantage or Disadvantage on the roll.</p>';
+        var message = '<p><b>Use Door</b><br>Try to open a door, of course. <i>Use this first.</i> If the door is unlocked, it will simply open or close the door. If the door is locked, stuck or anything else, you will notified.</p>';
+        message += '<p><b>Pick Lock</b><br>Try to pick the lock of a locked door. If you control more than one character you will be asked to select which one is making the attempt. Then you will select the skill that character wants to use, and indicate if they have Advantage or Disadvantage on the roll.</p>';
         if (state['DoorMaster'].allowFumbles) message += '<p>If you fumble in your attempt to pick the lock, it will be disabled and cannot be picked or unlocked thereafter.</p>';
-        message += '<p><b>Break Door</b><br>You may attempt to open the door by force. If you control more than one character you will be asked to select the one making the attempt. Then you will select the skill that character wants to use, and indicate if you have Advantage or Disadvantage on the roll.</p>';
-        message += '<p>Beware, you may break the door completly or destroy its lock, preventing it from being re-locked, should you ever wish to do so.</p>';
+        message += '<p><b>Break Door</b><br>Attempt to open the door by brute force. If you control more than one character you will be asked to select which one is making the attempt. Then you will select the skill to use, and indicate if they have Advantage or Disadvantage.</p>';
+        message += '<p>Beware, you may break the door completely or destroy its lock, preventing it from being unlocked if the door gets closed.</p>';
         showDialog('DoorMaster Help', message, msg.who);
     },
 
@@ -182,8 +187,10 @@ var DoorMaster = DoorMaster || (function () {
                         new_door.breakDC = (isNum(token.get('bar2_max'))) ? parseInt(token.get('bar2_max')) : (new_door.condition == 'Barred' ? 30 : 15);
                     } else if (token_name == 'Open') {
                         new_door.open_id = token.get('id');
-                    } else if (token_name == 'Switch') {
+                    } else if (token_name == 'Switch' || token_name == 'Switch1') {
                         new_door.switch_id = token.get('id');
+                    } else if (token_name == 'Switch2') {
+                        new_door.switch2_id = token.get('id');
                     } else if (token_name == 'Broken') {
                         new_door.broken_id = token.get('id');
                     }
@@ -205,6 +212,7 @@ var DoorMaster = DoorMaster || (function () {
                         // Set basics
                         token.set({name: new_door.id, playersedit_name: false, showname: false, bar1_value: '', bar1_max: '', bar2_value: '', bar2_max: '', bar3_value: '', bar3_max: '', showplayers_bar1: false, showplayers_bar2: false, showplayers_bar3: false, showplayers_aura1: true, showplayers_aura2: false, playersedit_bar1: false, playersedit_bar2: false, playersedit_bar3: false, playersedit_aura1: false, playersedit_aura2: false});
                         if (token.get('id') == new_door.open_id || token.get('id') == new_door.broken_id) token.set({layer: 'walls'});
+                        if (typeof new_door.switch2_id != 'undefined' && token.get('id') == new_door.switch2_id) token.set({layer: 'walls'});
 
                         // Set auras
                         if (new_door.hidden) {
@@ -212,13 +220,15 @@ var DoorMaster = DoorMaster || (function () {
                             if (token.get('id') == new_door.switch_id) token.set(hidden_aura_settings);
                         } else {
                             if ((token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id)
-                            && typeof new_door.switch_id == 'undefined' && state['DoorMaster'].useAura) token.set(aura_settings);
+                                && typeof new_door.switch_id == 'undefined' && state['DoorMaster'].useAura) token.set(aura_settings);
                             if (token.get('id') == new_door.switch_id && state['DoorMaster'].useAura) token.set(aura_settings);
+                            if (typeof new_door.switch2_id != 'undefined' && token.get('id') == new_door.switch2_id && state['DoorMaster'].useAura) token.set(aura_settings);
 
                             // Set represents
                             if (token.get('id') == new_door.switch_id) token.set({represents: state['DoorMaster'].doorCharID});
+                            if (typeof new_door.switch2_id != 'undefined' && token.get('id') == new_door.switch2_id) token.set({represents: state['DoorMaster'].doorCharID});
                             if ((token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id)
-                            && typeof new_door.switch_id == 'undefined') token.set({represents: state['DoorMaster'].doorCharID});
+                                && typeof new_door.switch_id == 'undefined') token.set({represents: state['DoorMaster'].doorCharID});
                         }
                     }
                     if (token.get('type') == 'path') token.set({layer: 'walls'});
@@ -301,6 +311,10 @@ var DoorMaster = DoorMaster || (function () {
                     } else {
                         switch (door.condition) {
                             case 'Unlocked':
+                                if (typeof door.linked != 'undefined' && _.size(door.linked) != 0 && action == 'open/close') {
+                                    openLinkedDoors(door);
+                                    return;
+                                }
                                 toggleDoorOpen(door);
                                 if (action == 'pick') {
                                     message = 'Um... This door was already unlocked.';
@@ -393,6 +407,7 @@ var DoorMaster = DoorMaster || (function () {
     },
 
     toggleDoorOpen = function (door) {
+        flipSwitch(door);
         var open_token = getObj('graphic', door.open_id);
         open_token.set({layer: (open_token.get('layer') == 'objects' ? 'walls' : 'objects')});
         var closed_token = getObj('graphic', door.closed_id);
@@ -422,6 +437,41 @@ var DoorMaster = DoorMaster || (function () {
         });
         door.condition = 'Broken';
         door.open = true;
+    },
+
+    flipSwitch = function (door) {
+        if (typeof door.switch_id != 'undefined' && typeof door.switch2_id != 'undefined') {
+            var switch1_token = getObj('graphic', door.switch_id);
+            var switch2_token = getObj('graphic', door.switch2_id);
+            switch1_token.set({layer: (switch1_token.get('layer') == 'objects' ? 'walls' : 'objects')});
+            switch2_token.set({layer: (switch2_token.get('layer') == 'objects' ? 'walls' : 'objects')});
+        }
+    },
+
+    openLinkedDoors = function (door) {
+        var message = '';
+        if (door.condition == 'Unlocked') {
+            var doors = _.filter(state['DoorMaster'].doors, function (x) { return _.find(door.linked, function (y) { return y == x.id; }); });
+            var conditions = _.pluck(doors, 'condition');
+            var bad_doors = _.filter(conditions, function (cond) { return cond != 'Unlocked' && cond != 'Broken'; });
+            if (door.all_or_nothing && !_.find(conditions, function (cond) { return cond != 'Unlocked' && cond != 'Broken'; })) {
+                toggleDoorOpen(door);
+                _.each(doors, function (tmp_door) {
+                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door);
+                });
+            } else if (!door.all_or_nothing) {
+                toggleDoorOpen(door);
+                _.each(doors, function (tmp_door) {
+                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door);
+                });
+                if (_.size(bad_doors) > 0) {
+                    message = 'There ' + (_.size(bad_doors) == 1 ? 'was an' : 'were') + ' ' + _.size(bad_doors) + ' unopenable linked ' + (_.size(bad_doors) == 1 ? 'door' : 'doors') + '.';
+                }
+            } else {
+                message = 'This door has ' + (_.size(bad_doors) == 1 ? 'an' : 'some') + ' unopenable linked ' + (_.size(bad_doors) == 1 ? 'door' : 'doors') + ' preventing its use.';
+            }
+        }
+        if (message != '') showDialog('', message, 'GM');
     },
 
     // Make a Secret or Concealed door available to the players
@@ -466,6 +516,8 @@ var DoorMaster = DoorMaster || (function () {
             if (open_token) open_token.set({layer: 'objects', name: 'Open', represents: '', aura1_radius: '', aura2_radius: ''});
             var switch_token = getObj('graphic', door.switch_id);
             if (switch_token) switch_token.set({layer: 'objects', name: 'Switch', represents: '', aura1_radius: '', aura2_radius: ''});
+            var switch2_token = getObj('graphic', door.switch2_id);
+            if (switch2_token) switch2_token.set({layer: 'objects', name: 'Switch2', represents: '', aura1_radius: '', aura2_radius: ''});
             var broken_token = getObj('graphic', door.broken_id);
             if (broken_token) broken_token.set({layer: 'objects', name: 'Broken'});
             _.each(door.paths, function (path_id) {
@@ -476,11 +528,46 @@ var DoorMaster = DoorMaster || (function () {
             state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.open_id; });
             state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.closed_id; });
             if (typeof door.switch_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.switch_id; });
+            if (typeof door.switch2_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.switch2_id; });
             if (typeof door.broken_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.broken_id; });
 
             state['DoorMaster'].doors = _.reject(state['DoorMaster'].doors, function (x) { return x.id == door.id; });
             showDialog('Destruction Complete', 'The door tokens have all been unlocked and all pieces returned to the token layer.', 'GM');
         } else showDialog('Destruction Error', 'Invalid door ID.', 'GM');
+    },
+
+    commandLinkDoors = function (msg) {
+        var door, parms = msg.content.split(/\s+/i);
+        if (parms[2] && parms[2] != '') {
+            door = _.find(state['DoorMaster'].doors, function (x) { return x.id == parms[2]; });
+        } else {
+            showDialog('Door Link Error', 'You must send a valid door ID.', 'GM');
+            return;
+        }
+
+        if (door) {
+            if (_.size(msg.selected) < 1) {
+                commandDoorStatus({content: '!door status ' + door.id}, '⚠️ No tokens selected.');
+                return;
+            }
+
+            var door_ids = (typeof door.linked != 'undefined' ? door.linked : []), message = '';
+            _.each(msg.selected, function (obj) {
+                var token = getObj(obj._type, obj._id);
+                if (token) {
+                    var door_id = token.get('name');
+                    var tmp_door =_.find(state['DoorMaster'].doors, function (x) { return x.id == door_id && x.id != door.id; });
+                    if (tmp_door) door_ids.push(door_id);
+                }
+            });
+            door_ids = _.uniq(door_ids);
+
+            if (_.size(door_ids) > 0) {
+                door.linked = door_ids;
+                door.all_or_nothing = false;
+                commandDoorStatus({content: '!door status ' + door.id}, (_.size(door_ids) == 1 ? '1 door was linked.' : _.size(door_ids) + ' doors were linked.'));
+            } else commandDoorStatus({content: '!door status ' + door.id}, '⚠️ No door tokens were selected.');
+        } else showDialog('Door Link Error', 'You must send a valid door ID.', 'GM');
     },
 
     commandDoorStatus = function (msg, alert = '') {
@@ -514,6 +601,10 @@ var DoorMaster = DoorMaster || (function () {
                 revealDoor(door);
                 alert = 'Door has been revealed.';
             }
+            if (actions[0] == '--toggle-aon') {
+                door.all_or_nothing = !door.all_or_nothing;
+                alert = 'All-or-nothing has been updated.';
+            }
             if (actions[0] == '--lock-dc' && actions[1] && actions[1] != '' && isNum(actions[1])) {
                 door.lockDC = parseInt(actions[1]);
                 alert = 'Lock DC has been updated.';
@@ -527,7 +618,8 @@ var DoorMaster = DoorMaster || (function () {
                 message += '<p style=\'' + styles.msg + '\'>' + alert + '</p>';
             }
 
-            message += '<p><b>Condition:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set Condition|Unlocked|Locked|Barred|Stuck|Disabled}" title="Change condition">' + door.condition + '</a><br>';
+            message += '<p>';
+            message += '<b>Condition:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set Condition|Unlocked|Locked|Barred|Stuck|Disabled}" title="Change condition">' + door.condition + '</a><br>';
             message += '<b>Visibility:</b> ' + (door.hidden ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal" title="Reveal door to players">' + door.visibility + '</a>' : door.visibility) + '<br>';
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
             message += '<b>Break DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --break-dc|?{Break DC|' + door.breakDC + '}" title="Change break DC">' + door.breakDC + '</a><br>';
@@ -535,6 +627,10 @@ var DoorMaster = DoorMaster || (function () {
             message += '<b>"Broken" graphic?</b> ' + (typeof door.broken_id == 'undefined' ? 'no' : 'yes') + '<br>';
             message += '<b>Tokens locked?</b> ' + (door.tokens_locked ? 'Yes' : '<span style="color: #C91010;">No</span> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --token-lock" title="Lock all associated tokens">lock</a>') + '</p>';
 
+            message += '<p><b>Linked Doors:</b> ' + (typeof door.linked != 'undefined' ? _.size(door.linked) : '0') + ' <a style=\'' + styles.textButton + '\' href="!door link ' + door.id + '" title="Link selected door(s)">link</a><br>';
+            if (typeof door.linked != 'undefined') message += '<b>All-or-nothing?</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-aon" title="Turn all-or-nothing ' + (door.all_or_nothing ? 'OFF' : 'ON') + '">' + (door.all_or_nothing ? 'ON' : 'OFF') + '</a>';
+
+            message += '</p>';
             showDialog((door.open ? 'Open Door' : 'Closed Door'), message, 'GM');
         } else showDialog('Door Status Error', 'Invalid door ID.', 'GM');
     },
@@ -543,6 +639,7 @@ var DoorMaster = DoorMaster || (function () {
         var door = _.find(state['DoorMaster'].doors, function (x) { return x.closed_id == token_id; });
         if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.open_id == token_id; });
         if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.switch_id == token_id; });
+        if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.switch2_id == token_id; });
         if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.broken_id == token_id; });
         return door;
     },
@@ -627,8 +724,8 @@ var DoorMaster = DoorMaster || (function () {
         }
     },
 
+    // Returns whether or not a string is actually a Number
     isNum = function (txt) {
-        // Returns whether or not a string is actually a Number
         var nr = /^\d+$/;
         return nr.test(txt);
     },
