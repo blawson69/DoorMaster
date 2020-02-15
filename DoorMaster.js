@@ -14,7 +14,7 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '2.0',
+    var version = '2.1',
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -406,8 +406,8 @@ var DoorMaster = DoorMaster || (function () {
         }
     },
 
-    toggleDoorOpen = function (door) {
-        flipSwitch(door);
+    toggleDoorOpen = function (door, flip_switch = true) {
+        if (flip_switch) flipSwitch(door);
         var open_token = getObj('graphic', door.open_id);
         open_token.set({layer: (open_token.get('layer') == 'objects' ? 'walls' : 'objects')});
         var closed_token = getObj('graphic', door.closed_id);
@@ -457,12 +457,12 @@ var DoorMaster = DoorMaster || (function () {
             if (door.all_or_nothing && !_.find(conditions, function (cond) { return cond != 'Unlocked' && cond != 'Broken'; })) {
                 toggleDoorOpen(door);
                 _.each(doors, function (tmp_door) {
-                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door);
+                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door, false);
                 });
             } else if (!door.all_or_nothing) {
                 toggleDoorOpen(door);
                 _.each(doors, function (tmp_door) {
-                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door);
+                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door, false);
                 });
                 if (_.size(bad_doors) > 0) {
                     message = 'There ' + (_.size(bad_doors) == 1 ? 'was an' : 'were') + ' ' + _.size(bad_doors) + ' unopenable linked ' + (_.size(bad_doors) == 1 ? 'door' : 'doors') + '.';
