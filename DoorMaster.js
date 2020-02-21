@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '2.0',
-    debugMode = false,
+    var version = '3.0',
+    debugMode = true,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
         title: 'padding: 0 0 6px 0; color: ##591209; font-size: 1.5em; font-weight: bold; font-variant: small-caps; font-family: "Times New Roman",Times,serif;',
@@ -28,7 +28,7 @@ var DoorMaster = DoorMaster || (function () {
         alert: 'color: #C91010; font-size: 1.5em; font-weight: bold; font-variant: small-caps; text-align: center;',
         msg: 'padding: 4px 10px; color: #C91010; font-size: 1em; border: 1px solid #C91010; text-align: center;'
     },
-    DOOR_CONDITIONS = ['Unlocked', 'Locked', 'Barred', 'Stuck', 'Disabled', 'Broken'],
+    DOOR_CONDITIONS = ['Unlocked', 'Locked', 'Keyed', 'Barred', 'Stuck', 'Disabled', 'Broken'],
 
     checkInstall = function () {
         if (!_.has(state, 'DoorMaster')) {
@@ -37,22 +37,35 @@ var DoorMaster = DoorMaster || (function () {
         }
         if (typeof state['DoorMaster'].doors == 'undefined') state['DoorMaster'].doors = [];
         if (typeof state['DoorMaster'].doorCharID == 'undefined') state['DoorMaster'].doorCharID = '';
+        if (typeof state['DoorMaster'].doorKeyedCharID == 'undefined') state['DoorMaster'].doorKeyedCharID = '';
+        if (typeof state['DoorMaster'].switchCharID == 'undefined') state['DoorMaster'].switchCharID = '';
+        if (typeof state['DoorMaster'].lockCharID == 'undefined') state['DoorMaster'].lockCharID = '';
         if (typeof state['DoorMaster'].lockedTokens == 'undefined') state['DoorMaster'].lockedTokens = [];
         if (typeof state['DoorMaster'].allowFumbles == 'undefined') state['DoorMaster'].allowFumbles = true;
         if (typeof state['DoorMaster'].showPlayersRolls == 'undefined') state['DoorMaster'].showPlayersRolls = false;
         if (typeof state['DoorMaster'].useAura == 'undefined') state['DoorMaster'].useAura = true;
         if (typeof state['DoorMaster'].doorAuraColor == 'undefined') state['DoorMaster'].doorAuraColor = '#666666';
         if (typeof state['DoorMaster'].hiddenAuraColor == 'undefined') state['DoorMaster'].hiddenAuraColor = '#99cc99';
-        log('--> DoorMaster v' + version + ' <-- Initialized');
 
+        if (state['DoorMaster'].doorKeyedCharID == '' || state['DoorMaster'].switchCharID == '' || state['DoorMaster'].lockCharID == '') state['DoorMaster'].showInit = true;
+        if (typeof state['DoorMaster'].doorCharID != 'undefined' && state['DoorMaster'].doorCharID != '') {
+            var attrs = findObjs({type: 'ability', characterid: state['DoorMaster'].doorCharID}, {caseInsensitive: true});
+            _.each(attrs, function (attr) {
+                if (attr.get('name') == 'Use Door') attr.set({name: 'Use'});
+                if (attr.get('name') == 'Pick Lock') attr.set({name: 'Pick'});
+                if (attr.get('name') == 'Break Door') attr.set({name: 'Break'});
+            });
+        }
+
+        log('--> DoorMaster v' + version + ' <-- Initialized');
 		if (debugMode) {
 			var d = new Date();
 			showDialog('Debug Mode', 'DoorMaster v' + version + ' loaded at ' + d.toLocaleTimeString() + '<br><a style=\'' + styles.textButton + '\' href="!door config">Show config</a>', 'GM');
 		}
 
         if (state['DoorMaster'].showInit) {
-            createDoorChar();
-            showDialog('Welcome', 'A character named "DoorMaster" has been created for use by the script. <i>Do not</i> rename or delete it.<div style=\'' + styles.buttonWrapper + '\'><a style=\'' + styles.button + '\' href="!door config">Show config</a></div>', 'GM');
+            createDoorChars();
+            showDialog('Welcome', 'Characters have been created for use by the DoorMaster script. <i>Do not</i> rename or delete them.<div style=\'' + styles.buttonWrapper + '\'><a style=\'' + styles.button + '\' href="!door config">Show config</a></div>', 'GM');
             state['DoorMaster'].showInit = false;
         }
     },
@@ -72,6 +85,9 @@ var DoorMaster = DoorMaster || (function () {
 						break;
 					case 'break':
 							commandUseDoor(msg, 'break');
+						break;
+					case 'key':
+							commandUseKey(msg);
 						break;
 					case 'help':
 							commandHelp(msg);
@@ -157,10 +173,11 @@ var DoorMaster = DoorMaster || (function () {
 	},
 
     commandHelp = function (msg) {
-        var message = '<p><b>Use Door</b><br>Try to open a door, of course. <i>Use this first.</i> If the door is unlocked, it will simply open or close the door. If the door is locked, stuck or anything else, you will notified.</p>';
-        message += '<p><b>Pick Lock</b><br>Try to pick the lock of a locked door. If you control more than one character you will be asked to select which one is making the attempt. Then you will select the skill that character wants to use, and indicate if they have Advantage or Disadvantage on the roll.</p>';
+        var message = '<p><b>Use</b><br>Use a door or switch. <i>Try this first.</i> If the door is unlocked, it will simply open or close the door. If the door is locked, stuck or anything else, you will notified.</p>';
+        message += '<p><b>Key</b><br>Use a passphrase to work the lock of a door.</p>';
+        message += '<p><b>Pick</b><br>Try to pick the lock of a locked door. If you control more than one character you will be asked to select which one is making the attempt. Then you will select the skill that character should use, and indicate if they have Advantage or Disadvantage on the roll.</p>';
         if (state['DoorMaster'].allowFumbles) message += '<p>If you fumble in your attempt to pick the lock, it will be disabled and cannot be picked or unlocked thereafter.</p>';
-        message += '<p><b>Break Door</b><br>Attempt to open the door by brute force. If you control more than one character you will be asked to select which one is making the attempt. Then you will select the skill to use, and indicate if they have Advantage or Disadvantage.</p>';
+        message += '<p><b>Break</b><br>Attempt to open the door by brute force. If you control more than one character you will be asked to select which one is making the attempt. Then you will select the skill to use, and indicate if they have Advantage or Disadvantage.</p>';
         message += '<p>Beware, you may break the door completely or destroy its lock, preventing it from being unlocked if the door gets closed.</p>';
         showDialog('DoorMaster Help', message, msg.who);
     },
@@ -185,14 +202,20 @@ var DoorMaster = DoorMaster || (function () {
                         new_door.hidden = (token.get('bar1_max') == 'Secret' || token.get('bar1_max') == 'Concealed');
                         new_door.lockDC = (isNum(token.get('bar2_value'))) ? parseInt(token.get('bar2_value')) : 12;
                         new_door.breakDC = (isNum(token.get('bar2_max'))) ? parseInt(token.get('bar2_max')) : (new_door.condition == 'Barred' ? 30 : 15);
+                        new_door.lock_passphrase = token.get('bar3_value').trim();
                     } else if (token_name == 'Open') {
                         new_door.open_id = token.get('id');
                     } else if (token_name == 'Switch' || token_name == 'Switch1') {
                         new_door.switch_id = token.get('id');
+                        if (token.get('bar1_value') == 'Hidden') new_door.switch_hidden = true;
                     } else if (token_name == 'Switch2') {
                         new_door.switch2_id = token.get('id');
+                        if (token.get('bar1_value') == 'Hidden') new_door.switch_hidden = true;
                     } else if (token_name == 'Broken') {
                         new_door.broken_id = token.get('id');
+                    } else if (token_name == 'Lock') {
+                        new_door.lock_id = token.get('id');
+                        if (token.get('bar1_value') == 'Hidden') new_door.lock_hidden = true;
                     }
                 } else if (token.get('type') == 'path') {
                     paths.push(token.get('id'));
@@ -200,9 +223,19 @@ var DoorMaster = DoorMaster || (function () {
             }
         });
         new_door.paths = paths;
+        if (new_door.condition == 'Keyed') {
+            new_door.condition = 'Locked';
+            new_door.has_key = true;
+            new_door.key_char_id = state['DoorMaster'].doorCharID;
+            if (new_door.lock_passphrase == '') new_door.lock_passphrase = 'Open sesame';
+        }
 
         if (typeof new_door.open_id != 'undefined' && typeof new_door.closed_id != 'undefined') {
             new_door.id = generateUniqueID();
+            if (new_door.switch_hidden) new_door.switch_hidden = {original: true, current: true};
+            else new_door.switch_hidden = {original: false, current: false};
+            if (new_door.lock_hidden) new_door.lock_hidden = {original: true, current: true};
+            else new_door.lock_hidden = {original: false, current: false};
             _.each(msg.selected, function (obj) {
                 var token = getObj(obj._type, obj._id);
                 if (token) {
@@ -214,21 +247,29 @@ var DoorMaster = DoorMaster || (function () {
                         if (token.get('id') == new_door.open_id || token.get('id') == new_door.broken_id) token.set({layer: 'walls'});
                         if (typeof new_door.switch2_id != 'undefined' && token.get('id') == new_door.switch2_id) token.set({layer: 'walls'});
 
-                        // Set auras
+                        // Set auras & assign characters
                         if (new_door.hidden) {
-                            if ((token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id) && typeof new_door.switch_id == 'undefined') token.set(hidden_aura_settings);
-                            if (token.get('id') == new_door.switch_id) token.set(hidden_aura_settings);
+                            if (token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id) token.set(hidden_aura_settings);
                         } else {
-                            if ((token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id)
-                                && typeof new_door.switch_id == 'undefined' && state['DoorMaster'].useAura) token.set(aura_settings);
-                            if (token.get('id') == new_door.switch_id && state['DoorMaster'].useAura) token.set(aura_settings);
-                            if (typeof new_door.switch2_id != 'undefined' && token.get('id') == new_door.switch2_id && state['DoorMaster'].useAura) token.set(aura_settings);
+                            if ((token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id) && state['DoorMaster'].useAura) token.set(aura_settings);
+                            if (token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id) token.set({represents: state['DoorMaster'].doorCharID});
+                        }
 
-                            // Set represents
-                            if (token.get('id') == new_door.switch_id) token.set({represents: state['DoorMaster'].doorCharID});
-                            if (typeof new_door.switch2_id != 'undefined' && token.get('id') == new_door.switch2_id) token.set({represents: state['DoorMaster'].doorCharID});
-                            if ((token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id)
-                                && typeof new_door.switch_id == 'undefined') token.set({represents: state['DoorMaster'].doorCharID});
+                        if (new_door.switch_hidden['current']) {
+                            if (token.get('id') == new_door.switch_id) token.set(hidden_aura_settings);
+                            if (token.get('id') == new_door.switch2_id) token.set(hidden_aura_settings);
+                        } else {
+                            if (token.get('id') == new_door.switch_id) token.set({represents: state['DoorMaster'].switchCharID});
+                            if (token.get('id') == new_door.switch2_id) token.set({represents: state['DoorMaster'].switchCharID});
+                            if (token.get('id') == new_door.switch_id && state['DoorMaster'].useAura) token.set(aura_settings);
+                            if (token.get('id') == new_door.switch2_id && state['DoorMaster'].useAura) token.set(aura_settings);
+                        }
+
+                        if (new_door.lock_hidden['current']) {
+                            if (token.get('id') == new_door.lock_id) token.set(hidden_aura_settings);
+                        } else {
+                            if (token.get('id') == new_door.lock_id) token.set({represents: state['DoorMaster'].lockCharID});
+                            if (token.get('id') == new_door.lock_id && state['DoorMaster'].useAura) token.set(aura_settings);
                         }
                     }
                     if (token.get('type') == 'path') token.set({layer: 'walls'});
@@ -259,8 +300,8 @@ var DoorMaster = DoorMaster || (function () {
                             // If skill and adv/dis have been sent, attempt to break the door down
                             var char = getObj('character', char_id);
                             var roll_result = rollDice(die_mod, adv_dis);
-                            var roll_display = '<div style="' + styles.resultBox + '"><span style="' + styles.result + (roll_result.base == 1 ? 'color: red;' : (roll_result.base == 20 ? 'color: green;' : '')) + '" title="' + roll_result.formula + '">' + roll_result.final + '</span> ' + roll_result.skill + ' ' + (roll_result.adv_dis == '-1' ? '<span style="cursor: pointer;" title="Disadvantage">[Dis]</span>' : (roll_result.adv_dis == '+1' ? '<span style="cursor: pointer;" title="Advantage">[Adv]</span>' : '')) + '</div>';
-                            var gm_display = roll_display.replace('</div>', 'vs. DC ' + door.breakDC + '</div>');
+                            var roll_display = '<div style="' + styles.resultBox + '"><span style="' + styles.result + (roll_result.base == 1 ? 'color: red;' : (roll_result.base == 20 ? 'color: green;' : '')) + '" title="' + roll_result.formula + '">' + roll_result.final + '</span> ' + roll_result.skill + (roll_result.adv_dis == '-1' ? ' <span style="cursor: pointer;" title="Disadvantage">[Dis]</span> ' : (roll_result.adv_dis == '+1' ? ' <span style="cursor: pointer;" title="Advantage">[Adv]</span>' : '')) + '</div>';
+                            var gm_display = roll_display.replace('</div>', ' vs. DC ' + door.breakDC + '</div>');
 
                             if (roll_result.final >= door.breakDC) {
                                 title = 'Success!';
@@ -275,9 +316,9 @@ var DoorMaster = DoorMaster || (function () {
                                     showDialog('', char.get('name') + ' has successfully broken through the door but destroyed it.<br>' + gm_display, 'GM');
                                 } else if (break_chance >= 70 && door.condition == 'Locked') {
                                     door.condition = 'Disabled';
-                                    message += ', but has damaged the lock.';
+                                    message += ', but has damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char.get('name') + ' has successfully broken through the door but damaged the lock.<br>' + gm_display, 'GM');
+                                    showDialog('', char.get('name') + ' has successfully broken through the door but damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.<br>' + gm_display, 'GM');
                                 } else {
                                     door.condition = 'Unlocked';
                                     message += '.';
@@ -309,23 +350,50 @@ var DoorMaster = DoorMaster || (function () {
                             message += '}" title="Please select which character is attempting to pick the lock.">Choose Character</a></div>';
                         }
                     } else {
+                        // IgnorePick Lock from a disabled yet still selected Lock token
+                        if (typeof door.lock_id != 'undefined' && token.get('id') == door.lock_id && token.get('represents') == '') {
+                            showDialog('', 'This lock no longer functions.', msg.who);
+                            return;
+                        }
+
                         switch (door.condition) {
                             case 'Unlocked':
                                 if (typeof door.linked != 'undefined' && _.size(door.linked) != 0 && action == 'open/close') {
                                     openLinkedDoors(door);
                                     return;
                                 }
-                                toggleDoorOpen(door);
-                                if (action == 'pick') {
-                                    message = 'Um... This door was already unlocked.';
-                                } else show_dialog = false;
+                                if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
+                                    message = 'This door has a switch that must be used.';
+                                } else if (token.get('id') == door.lock_id && action == 'pick') {
+                                    message = 'This door is already unlocked and cannot be operated from here.';
+                                } else {
+                                    toggleDoorOpen(door);
+                                    if (action == 'pick') {
+                                        message = 'Um... This door was already unlocked.';
+                                    } else show_dialog = false;
+                                }
                                 break;
                             case 'Locked':
                                 title = 'Locked';
-                                message = 'You cannot open the door without a key... or try another method.';
+                                message = typeof door.lock_id == 'undefined' ? 'You cannot open the door without a key... or try another method.' : '... yet there is no lock visible on the door.';
+
+                                if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
+                                    title = '';
+                                    message = 'This door has a switch that must be used.';
+                                    break;
+                                }
+
+                                if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
+                                    message = 'The switch will not budge.';
+                                    break;
+                                }
 
                                 if (action == 'pick') {
-                                    //var chars = getCharsFromPlayerID(msg.playerid);
+                                    if (typeof door.lock_id != 'undefined' && token.get('id') != door.lock_id) {
+                                        message = 'This door has no visible lock to pick...';
+                                        break;
+                                    }
+
                                     if (die_mod != null && adv_dis != null) {
                                         // If skill and adv/dis have been sent, attempt to pick the lock
                                         var char = getObj('character', char_id);
@@ -369,31 +437,57 @@ var DoorMaster = DoorMaster || (function () {
                                 }
                                 break;
                             case 'Disabled':
+                                if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
+                                    title = '';
+                                    message = 'This door has a switch that must be used.';
+                                    break;
+                                }
+
                                 if (door.open) {
                                     toggleDoorOpen(door);
                                     show_dialog = false;
                                 } else {
                                     title = 'Lock Disabled';
                                     message = 'This door\'s lock has been broken and cannot be picked, nor will a key work.';
-                                    if (action == 'pick') message += ' Your attempt to pick it is futile.';
+                                    if (action == 'pick') message = 'This door\'s lock has been broken and cannot be picked.' + (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this door.' : ' Your attempt to pick it is futile.');
+                                    if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
+                                        message = 'The switch will not budge.';
+                                    }
                                 }
                                 break;
                             case 'Barred':
                                 title = 'Barred';
                                 message = 'This door seems to be barred or blocked from the other side.';
-                                if (action == 'pick') message += ' Your attempt to pick it is inconceivable.';
+                                if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this door.' : ' Your attempt to pick it is ineffectual.');
                                 if (action == 'break') message += ' You cannot hope to break through.';
+                                if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
+                                    message = 'The switch begins to move but cannot.';
+                                }
+                                if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
+                                    title = '';
+                                    message = 'This door has a switch that must be used.';
+                                }
                                 break;
                             case 'Stuck':
                                 title = 'Stuck';
                                 message = 'This door is stuck shut and will not open easily.';
-                                if (action == 'pick') message += ' Your attempt to pick it is inconceivable.';
+                                if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this door.' : ' Your attempt to pick it is inconceivable.');
+                                if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
+                                    message = 'The switch begins to move but cannot.';
+                                }
+                                if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
+                                    title = '';
+                                    message = 'This door has a switch that must be used.';
+                                }
                                 break;
                             case 'Broken':
                                 title = 'Broken';
                                 message = 'This door is broken and cannot be opened or closed.';
-                                if (action == 'pick') message += ' Your attempt to pick it is inconceivable.';
+                                if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this door.' : ' Your attempt to pick it is absurd.');
                                 if (action == 'break') message = 'Why are you attacking a broken door?';
+                                if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
+                                    message = 'Why are you playing with the switch?';
+                                }
                         }
                     }
 
@@ -406,8 +500,8 @@ var DoorMaster = DoorMaster || (function () {
         }
     },
 
-    toggleDoorOpen = function (door) {
-        flipSwitch(door);
+    toggleDoorOpen = function (door, flip_switch = true) {
+        if (flip_switch) flipSwitch(door);
         var open_token = getObj('graphic', door.open_id);
         open_token.set({layer: (open_token.get('layer') == 'objects' ? 'walls' : 'objects')});
         var closed_token = getObj('graphic', door.closed_id);
@@ -457,12 +551,12 @@ var DoorMaster = DoorMaster || (function () {
             if (door.all_or_nothing && !_.find(conditions, function (cond) { return cond != 'Unlocked' && cond != 'Broken'; })) {
                 toggleDoorOpen(door);
                 _.each(doors, function (tmp_door) {
-                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door);
+                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door, false);
                 });
             } else if (!door.all_or_nothing) {
                 toggleDoorOpen(door);
                 _.each(doors, function (tmp_door) {
-                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door);
+                    if (tmp_door.condition == 'Unlocked') toggleDoorOpen(tmp_door, false);
                 });
                 if (_.size(bad_doors) > 0) {
                     message = 'There ' + (_.size(bad_doors) == 1 ? 'was an' : 'were') + ' ' + _.size(bad_doors) + ' unopenable linked ' + (_.size(bad_doors) == 1 ? 'door' : 'doors') + '.';
@@ -477,23 +571,30 @@ var DoorMaster = DoorMaster || (function () {
     // Make a Secret or Concealed door available to the players
     revealDoor = function (door) {
         var aura_settings = {aura1_radius: '0.1', aura1_color: state['DoorMaster'].doorAuraColor, aura1_square: false};
-
-        if (typeof door.switch_id != 'undefined') {
-            var switch_token = getObj('graphic', door.switch_id);
-            switch_token.set({represents: state['DoorMaster'].doorCharID, aura2_radius: ''});
-            if (state['DoorMaster'].useAura) switch_token.set(aura_settings);
-        } else {
-            var open_token = getObj('graphic', door.open_id);
-            var closed_token = getObj('graphic', door.closed_id);
-            open_token.set({represents: state['DoorMaster'].doorCharID, aura2_radius: ''});
-            closed_token.set({represents: state['DoorMaster'].doorCharID, aura2_radius: ''});
-            if (state['DoorMaster'].useAura) {
-                open_token.set(aura_settings);
-                closed_token.set(aura_settings);
-            }
+        var open_token = getObj('graphic', door.open_id);
+        var closed_token = getObj('graphic', door.closed_id);
+        open_token.set({represents: state['DoorMaster'].doorCharID, aura2_radius: ''});
+        closed_token.set({represents: state['DoorMaster'].doorCharID, aura2_radius: ''});
+        if (state['DoorMaster'].useAura) {
+            open_token.set(aura_settings);
+            closed_token.set(aura_settings);
         }
         door.hidden = false;
         door.visibility = 'Visible';
+    },
+
+    // Make a hidden switch token available to the players
+    revealSwitch = function (door) {
+        var aura_settings = {aura1_radius: '0.1', aura1_color: state['DoorMaster'].doorAuraColor, aura1_square: false};
+        var switch1_token = getObj('graphic', door.switch_id);
+        var switch2_token = getObj('graphic', door.switch2_id);
+        if (switch1_token) switch1_token.set({represents: state['DoorMaster'].switchCharID, aura2_radius: ''});
+        if (switch2_token) switch2_token.set({represents: state['DoorMaster'].switchCharID, aura2_radius: ''});
+        if (state['DoorMaster'].useAura) {
+            if (switch1_token) switch1_token.set(aura_settings);
+            if (switch2_token) switch2_token.set(aura_settings);
+        }
+        door.switch_hidden['current'] = false;
     },
 
     // Places all door elements back on the objects layer and deletes the door object
@@ -510,16 +611,21 @@ var DoorMaster = DoorMaster || (function () {
         } else showDialog('Destruction Error', 'You must select a token associated with a door.', 'GM');
 
         if (door) {
+            // Backward compatability for door switches
+            if (!door.switch_hidden || typeof door.switch_hidden == 'boolean') door.switch_hidden = {original: door.switch_hidden, current: door.switch_hidden};
+
             var closed_token = getObj('graphic', door.closed_id);
-            if (closed_token) closed_token.set({layer: 'objects', name: 'Closed', represents: '', aura1_radius: '', aura2_radius: '', bar1_value: door.condition, bar1_max: door.visibility, bar2_value: door.lockDC, bar2_max: door.breakDC, bar3_value: '', bar3_max: ''});
+            if (closed_token) closed_token.set({layer: 'objects', name: 'Closed', represents: '', aura1_radius: '', aura2_radius: '', bar1_value: (door.has_key ? 'Keyed' : door.condition), bar1_max: (door.visibility != 'Visible' ? door.visibility : ''), bar2_value: door.lockDC, bar2_max: door.breakDC, bar3_value: (door.lock_passphrase ? door.lock_passphrase : ''), bar3_max: ''});
             var open_token = getObj('graphic', door.open_id);
             if (open_token) open_token.set({layer: 'objects', name: 'Open', represents: '', aura1_radius: '', aura2_radius: ''});
             var switch_token = getObj('graphic', door.switch_id);
-            if (switch_token) switch_token.set({layer: 'objects', name: 'Switch', represents: '', aura1_radius: '', aura2_radius: ''});
+            if (switch_token) switch_token.set({layer: 'objects', name: 'Switch', represents: '', bar1_value: (door.switch_hidden['original'] ? 'Hidden' : ''), aura1_radius: '', aura2_radius: ''});
             var switch2_token = getObj('graphic', door.switch2_id);
-            if (switch2_token) switch2_token.set({layer: 'objects', name: 'Switch2', represents: '', aura1_radius: '', aura2_radius: ''});
+            if (switch2_token) switch2_token.set({layer: 'objects', name: 'Switch2', represents: '', bar1_value: '', aura1_radius: '', aura2_radius: ''});
             var broken_token = getObj('graphic', door.broken_id);
             if (broken_token) broken_token.set({layer: 'objects', name: 'Broken'});
+            var lock_token = getObj('graphic', door.lock_id);
+            if (lock_token) lock_token.set({name: 'Lock', represents: '', bar1_value: (door.lock_hidden['original'] ? 'Hidden' : ''), aura1_radius: '', aura2_radius: ''});
             _.each(door.paths, function (path_id) {
                 var path = getObj('path', path_id);
                 if (path) path.set({layer: 'objects'});
@@ -530,12 +636,14 @@ var DoorMaster = DoorMaster || (function () {
             if (typeof door.switch_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.switch_id; });
             if (typeof door.switch2_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.switch2_id; });
             if (typeof door.broken_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.broken_id; });
+            if (typeof door.lock_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.lock_id; });
 
             state['DoorMaster'].doors = _.reject(state['DoorMaster'].doors, function (x) { return x.id == door.id; });
             showDialog('Destruction Complete', 'The door tokens have all been unlocked and all pieces returned to the token layer.', 'GM');
-        } else showDialog('Destruction Error', 'Invalid door ID.', 'GM');
+        } else showDialog('Destruction Error', (_.size(msg.selected) != 1 ? 'Too many tokens selected.' : 'Invalid door ID.'), 'GM');
     },
 
+    // Links selected doors to the indicated Master door
     commandLinkDoors = function (msg) {
         var door, parms = msg.content.split(/\s+/i);
         if (parms[2] && parms[2] != '') {
@@ -570,6 +678,87 @@ var DoorMaster = DoorMaster || (function () {
         } else showDialog('Door Link Error', 'You must send a valid door ID.', 'GM');
     },
 
+    // Make a hidden lock token available to the players
+    enableLock = function (door, reset = false) {
+        var aura_settings = {aura2_radius: '', aura1_radius: '0.1', aura1_color: state['DoorMaster'].doorAuraColor, aura1_square: false};
+        var hidden_aura_settings = {aura1_radius: '', aura2_radius: '0.1', aura2_color: state['DoorMaster'].hiddenAuraColor, aura2_square: false};
+        var lock_token = getObj('graphic', door.lock_id);
+        if (reset) {
+            lock_token.set({represents: '', aura1_radius: ''});
+            lock_token.set(hidden_aura_settings);
+            door.lock_hidden['current'] = true;
+        } else {
+            lock_token.set({represents: state['DoorMaster'].lockCharID, aura2_radius: ''});
+            if (state['DoorMaster'].useAura) lock_token.set(aura_settings);
+            door.lock_hidden['current'] = false;
+        }
+    },
+
+    // Make door tokens able to accept a key
+    enableKey = function (door, reset = false) {
+        var aura_settings = {aura2_radius: '', aura1_radius: '0.1', aura1_color: state['DoorMaster'].doorAuraColor, aura1_square: false};
+        var hidden_aura_settings = {aura1_radius: '', aura2_radius: '0.1', aura2_color: state['DoorMaster'].hiddenAuraColor, aura2_square: false};
+        door.key_char_id = reset ? state['DoorMaster'].doorCharID : state['DoorMaster'].doorKeyedCharID;
+        if (typeof door.lock_id == 'undefined') {
+            var open_token = getObj('graphic', door.open_id);
+            var closed_token = getObj('graphic', door.closed_id);
+            if (reset) {
+                open_token.set({represents: door.key_char_id});
+                if (door.hidden) open_token.set(hidden_aura_settings);
+                closed_token.set({represents: door.key_char_id});
+                if (door.hidden) closed_token.set(hidden_aura_settings);
+            } else {
+                open_token.set({represents: door.key_char_id});
+                closed_token.set({represents: door.key_char_id});
+                if (state['DoorMaster'].useAura) open_token.set(aura_settings);
+                if (state['DoorMaster'].useAura) closed_token.set(aura_settings);
+            }
+        }
+    },
+
+    commandUseKey = function (msg) {
+        var passphrase = msg.content.replace('!door key ', '');
+        if (_.size(msg.selected) == 1) {
+            var token = getObj(msg.selected[0]._type, msg.selected[0]._id);
+            if (token) {
+                var door = getDoorFromTokenID(token.get('id'));
+                if (door) {
+                    // Ignore input from a disabled yet still selected Lock token
+                    if (typeof door.lock_id != 'undefined' && token.get('id') == door.lock_id && token.get('represents') == '') {
+                        showDialog('', 'This lock no longer functions.', msg.who);
+                        return;
+                    }
+
+                    if (passphrase == door.lock_passphrase) {
+                        switch (door.condition) {
+                            case 'Locked':
+                                door.condition = 'Unlocked';
+                                if (door.key_reset) {
+                                    if (typeof door.lock_id == 'undefined') enableKey(door, true);
+                                    else enableLock(door, true);
+                                }
+                                showDialog('Key Used', 'Success! The door is now unlocked.', msg.who);
+                                break;
+                            case 'Unlocked':
+                                if (door.open) toggleDoorOpen(door);
+                                door.condition = 'Locked';
+                                showDialog('Key Used', 'This door is now locked.', msg.who);
+                                break;
+                            default:
+                                showDialog('Key Used', 'Using a key on this door makes no sense right now.', msg.who);
+                        }
+                    } else {
+                        var message = 'Passphrase "' + passphrase + '" is incorrect. The door remains ' + (door.condition == 'Locked' ? 'locked' : 'unlocked') + '.';
+                        if (door.condition != 'Locked' && door.condition != 'Unlocked') message = 'Using a key on this door makes no sense right now.';
+                        showDialog('Key Used', message, msg.who);
+                    }
+                } else showDialog('Key Use Error', 'Invalid door ID.', msg.who);
+            } else showDialog('Key Use Error', 'Invalid token.', msg.who);
+        } else {
+            showDialog('Key Use Error', 'You must select a door or lock token.', msg.who);
+        }
+    },
+
     commandDoorStatus = function (msg, alert = '') {
         var door, message = '', parms = msg.content.split(/\s+/i);
         if (parms[2] && parms[2] != '') {
@@ -588,22 +777,49 @@ var DoorMaster = DoorMaster || (function () {
                 state['DoorMaster'].lockedTokens.push(door.open_id);
                 state['DoorMaster'].lockedTokens.push(door.closed_id);
                 if (typeof door.switch_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.switch_id);
+                if (typeof door.switch2_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.switch2_id);
                 if (typeof door.broken_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.broken_id);
+                if (typeof door.lock_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.lock_id);
                 door.tokens_locked = true;
                 alert = 'All door tokens have been locked.';
             }
             if (actions[0] == '--set-cond' && actions[1] && _.find(DOOR_CONDITIONS, function (x) { return x == actions[1]; })) {
-                if (door.open && actions[1] == 'Locked') toggleDoorOpen(door);
+                if (door.open && actions[1] != 'Unlocked' && actions[1] != 'Disabled') toggleDoorOpen(door);
                 door.condition = actions[1];
                 alert = 'Condition has been updated.';
             }
-            if (actions[0] == '--reveal') {
+            if (actions[0] == '--reveal-door') {
                 revealDoor(door);
                 alert = 'Door has been revealed.';
+            }
+            if (actions[0] == '--reveal-switch') {
+                revealSwitch(door);
+                alert = 'Switch has been revealed.';
+            }
+            if (actions[0] == '--keyhole') {
+                enableKey(door);
+                alert = 'Key has been enabled.';
+            }
+            if (actions[0] == '--show-lock') {
+                enableLock(door);
+                alert = 'Lock has been enabled.';
+            }
+            if (actions[0] == '--passphrase') {
+                var passphrase = msg.content.split(/\s*\|\s*/i);
+                if (passphrase[1] && passphrase[1].trim() != '') {
+                    door.lock_passphrase = passphrase[1].trim();
+                    alert = 'Passphrase has been updated.';
+                } else {
+                    alert = '⚠️ Passphrase was blank! Not changed.';
+                }
             }
             if (actions[0] == '--toggle-aon') {
                 door.all_or_nothing = !door.all_or_nothing;
                 alert = 'All-or-nothing has been updated.';
+            }
+            if (actions[0] == '--toggle-key-reset') {
+                door.key_reset = !door.key_reset;
+                alert = 'Key reset has been updated.';
             }
             if (actions[0] == '--lock-dc' && actions[1] && actions[1] != '' && isNum(actions[1])) {
                 door.lockDC = parseInt(actions[1]);
@@ -620,14 +836,28 @@ var DoorMaster = DoorMaster || (function () {
 
             message += '<p>';
             message += '<b>Condition:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set Condition|Unlocked|Locked|Barred|Stuck|Disabled}" title="Change condition">' + door.condition + '</a><br>';
-            message += '<b>Visibility:</b> ' + (door.hidden ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal" title="Reveal door to players">' + door.visibility + '</a>' : door.visibility) + '<br>';
+            message += '<b>Visibility:</b> ' + (door.hidden ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-door" title="Reveal door to players">' + door.visibility + '</a>' : door.visibility) + '<br>';
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
             message += '<b>Break DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --break-dc|?{Break DC|' + door.breakDC + '}" title="Change break DC">' + door.breakDC + '</a><br>';
-            message += '<b>Switched?</b> ' + (typeof door.switch_id == 'undefined' ? 'no' : 'yes') + '<br>';
+
+            if (door.has_key) {
+                message += '<hr style="margin: 4px 12px;">';
+                if (typeof door.lock_id != 'undefined') {
+                    message += '<b>External Lock:</b> ' + (door.lock_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --show-lock" title="Allow players to use lock">Enable Lock</a>' : 'Lock enabled') + '<br>';
+                } else {
+                    message += '<b>Keyed Door:</b> ' + (door.key_char_id == state['DoorMaster'].doorCharID ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --keyhole" title="Allow players to use key">Enable key</a>' : 'Key enabled') + '<br>';
+                }
+                message += '<b>Key Reset:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-key-reset" title="Turn key reset ' + (door.key_reset ? 'OFF' : 'ON') + '">' + (door.key_reset ? 'ON' : 'OFF') + '</a><br>';
+                message += '<b>Passphrase:</b> <i>' + door.lock_passphrase + '</i> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door status ' + door.id + ' --passphrase|?{Passphrase|' + door.lock_passphrase + '}" title="Change lock passphrase">&Delta;</a><br>';
+                message += '<hr style="margin: 4px 12px;">';
+            }
+
+            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal switch to players">Hidden</a>' : 'Visible')) + '<br>';
+
             message += '<b>"Broken" graphic?</b> ' + (typeof door.broken_id == 'undefined' ? 'no' : 'yes') + '<br>';
             message += '<b>Tokens locked?</b> ' + (door.tokens_locked ? 'Yes' : '<span style="color: #C91010;">No</span> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --token-lock" title="Lock all associated tokens">lock</a>') + '</p>';
 
-            message += '<p><b>Linked Doors:</b> ' + (typeof door.linked != 'undefined' ? _.size(door.linked) : '0') + ' <a style=\'' + styles.textButton + '\' href="!door link ' + door.id + '" title="Link selected door(s)">link</a><br>';
+            message += '<p><b>Linked Doors:</b> ' + (typeof door.linked != 'undefined' ? _.size(door.linked) : 'none') + ' <a style=\'' + styles.textButton + '\' href="!door link ' + door.id + '" title="Link selected door(s)">link</a><br>';
             if (typeof door.linked != 'undefined') message += '<b>All-or-nothing?</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-aon" title="Turn all-or-nothing ' + (door.all_or_nothing ? 'OFF' : 'ON') + '">' + (door.all_or_nothing ? 'ON' : 'OFF') + '</a>';
 
             message += '</p>';
@@ -641,6 +871,7 @@ var DoorMaster = DoorMaster || (function () {
         if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.switch_id == token_id; });
         if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.switch2_id == token_id; });
         if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.broken_id == token_id; });
+        if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.lock_id == token_id; });
         return door;
     },
 
@@ -683,19 +914,56 @@ var DoorMaster = DoorMaster || (function () {
         return retSkills;
     },
 
-    // Create Door Character
-    createDoorChar = function (msg) {
+    // Create Door Characters
+    createDoorChars = function (msg) {
         if (!doorCharExists()) {
             var char = createObj("character", {name: 'DoorMaster', controlledby: 'all'});
             var char_id = char.get('id');
             char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
 
-            var use_action = createObj("ability", { name: 'Use Door', characterid: char_id, action: '!door use', istokenaction: true });
-            var pick_action = createObj("ability", { name: 'Pick Lock', characterid: char_id, action: '!door pick', istokenaction: true });
-            var break_action = createObj("ability", { name: 'Break Door', characterid: char_id, action: '!door break', istokenaction: true });
-            var break_action = createObj("ability", { name: 'Help', characterid: char_id, action: '!door help', istokenaction: true });
+            createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
+            createObj("ability", { name: 'Pick', characterid: char_id, action: '!door pick', istokenaction: true });
+            createObj("ability", { name: 'Break', characterid: char_id, action: '!door break', istokenaction: true });
+            createObj("ability", { name: 'Help', characterid: char_id, action: '!door help', istokenaction: true });
 
             state['DoorMaster'].doorCharID = char_id;
+        }
+
+        if (!doorKeyedCharExists()) {
+            var kchar = createObj("character", {name: 'DoorMaster Keyed', controlledby: 'all'});
+            var kchar_id = kchar.get('id');
+            kchar.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+
+            createObj("ability", { name: 'Use', characterid: kchar_id, action: '!door use', istokenaction: true });
+            createObj("ability", { name: 'Key', characterid: kchar_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
+            createObj("ability", { name: 'Pick', characterid: kchar_id, action: '!door pick', istokenaction: true });
+            createObj("ability", { name: 'Break', characterid: kchar_id, action: '!door break', istokenaction: true });
+            createObj("ability", { name: 'Help', characterid: kchar_id, action: '!door help', istokenaction: true });
+
+            state['DoorMaster'].doorKeyedCharID = kchar_id;
+        }
+
+        if (!switchCharExists()) {
+            var schar = createObj("character", {name: 'DoorMaster Switch', controlledby: 'all'});
+            var schar_id = schar.get('id');
+            schar.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+
+            createObj("ability", { name: 'Use', characterid: schar_id, action: '!door use', istokenaction: true });
+            createObj("ability", { name: 'Help', characterid: schar_id, action: '!door help', istokenaction: true });
+
+            state['DoorMaster'].doorKeyedCharID = kchar_id;
+        }
+
+        if (!lockCharExists()) {
+            var lchar = createObj("character", {name: 'DoorMaster Lock', controlledby: 'all'});
+            var lchar_id = lchar.get('id');
+            lchar.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+
+            createObj("ability", { name: 'Key', characterid: lchar_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
+            createObj("ability", { name: 'Pick', characterid: char_id, action: '!door pick', istokenaction: true });
+            createObj("ability", { name: 'Help', characterid: lchar_id, action: '!door help', istokenaction: true });
+
+            state['DoorMaster'].doorKeyedCharID = kchar_id;
         }
     },
 
@@ -707,6 +975,42 @@ var DoorMaster = DoorMaster || (function () {
         }
         if (char) {
             if (state['DoorMaster'].doorCharID == '') state['DoorMaster'].doorCharID = char.get('id');
+            return true;
+        } else return false;
+    },
+
+    doorKeyedCharExists = function () {
+        var char = getObj('character', state['DoorMaster'].doorKeyedCharID);
+        if (!char) {
+            var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
+            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Keyed'; });
+        }
+        if (char) {
+            if (state['DoorMaster'].doorKeyedCharID == '') state['DoorMaster'].doorKeyedCharID = char.get('id');
+            return true;
+        } else return false;
+    },
+
+    switchCharExists = function () {
+        var char = getObj('character', state['DoorMaster'].switchCharID);
+        if (!char) {
+            var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
+            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Switch'; });
+        }
+        if (char) {
+            if (state['DoorMaster'].switchCharID == '') state['DoorMaster'].switchCharID = char.get('id');
+            return true;
+        } else return false;
+    },
+
+    lockCharExists = function () {
+        var char = getObj('character', state['DoorMaster'].lockCharID);
+        if (!char) {
+            var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
+            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Lock'; });
+        }
+        if (char) {
+            if (state['DoorMaster'].lockCharID == '') state['DoorMaster'].lockCharID = char.get('id');
             return true;
         } else return false;
     },
