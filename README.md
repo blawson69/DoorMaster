@@ -30,14 +30,14 @@ When you have all of the elements for your door, you select all of them and send
 
 ## Door States
 
-Each door will have on of the following States. Typically, you will only use the first five when [creating a door](#door-creation). The last two are set by DoorMaster when certain conditions are met:
-- *Unlocked* - Players can open and close the door effortlessly.
-- *Locked* - The door has a lock that either needs a key or can be picked open.
-- *Keyed* - The door has a lock with which the player can interact. This status is **only** used to tell DoorMaster that the door is [Keyed](#keyed-doors), and will be converted to the Locked State during door creation.
-- *Barred* - This door is barred or obstructed from the opposite side. It cannot be picked or busted through.
-- *Stuck* -  This door is not locked, but won't open without being forced.
-- *Disabled* - A disabled door has had its lock damaged. It cannot be unlocked with a key or by picking it.
-- *Broken* - A broken door has been damaged to the point it is unusable. These doors are always open and cannot be closed by any means. You *cannot* set this State during door creation.
+Each door will have one of the following States. Typically, you will only use the first five when [creating a door](#door-creation). The last two are set by DoorMaster when certain conditions are met:
+- **Unlocked** - Players can open and close the door effortlessly.
+- **Locked** - The door has a lock that either needs a key or can be picked open.
+- **[Keyed](#keyed-doors)** - The door has a lock with which the player can interact. This status is **only** used to tell DoorMaster that the door is Keyed, and will be converted to the Locked State during door creation.
+- **Barred** - This door is barred or obstructed from the opposite side. It cannot be picked or busted through.
+- **Stuck** -  This door is not locked, but won't open without being forced.
+- **Disabled** - A disabled door has had its lock damaged. It cannot be unlocked with a key or by picking it.
+- **Broken** - A broken door has been damaged to the point it is unusable. These doors are always open and cannot be closed by any means. You *cannot* set this State during door creation.
 
 You can change the door's State at any time in the [Status window](#door-status) with any one of the door's tokens selected. Note that setting an open door to a Locked, Barred, or Stuck State will close that door as well.
 
@@ -56,9 +56,9 @@ If you want to have an "on/off" effect for your Switch, provide a second token n
 ## Keyed Doors
 
 Doors can have "keys" to unlock them. These are passphrases - passwords or sentences - that you provide. To create such a door, use "Keyed" as the door [State](#door-states) during [door creation](#door-creation) and enter the passphrase you wish to use in the first Bar 3 box. Upon creation, the door will be Locked and you will have the following additional functionality in the [Status window](#door-status):
-- The ability to manually enable the use of a "Use Key" token action button. This button lets players enter a passphrase in an attempt to unlock the door. Until enabled, the door will only have the usual [token action buttons](#doormaster-characters) available.
+- The ability to manually enable the use of a "Key" token action button. This button lets players enter a passphrase in an attempt to unlock the door. Until enabled, the door will only have the usual [token action buttons](#doormaster-characters) available. If a [Lock token](#lock-tokens) is being used, the "Key" button will appear there instead.
 - The passphrase will be displayed, which you can change at any time.
-- You can choose to remove the "Use Key" token action whenever the door is unlocked with the proper passphrase. By default this "Key Reset" function is OFF, allowing players to *lock* the door with the passphrase as well.
+- You can choose to remove the "Key" token action whenever the door is unlocked with the proper passphrase. By default this "Key Reset" function is OFF, allowing players to *lock* the door with the passphrase as well.
 
 Passphrases should be alphanumeric and may contain punctuation and spaces, but you should avoid characters used in URLs (colons, forward slashes, etc.). They do not have to be unique, but remember that entering a non-unique passphrase on one door will not unlock other doors with the same passphrase.
 
@@ -88,21 +88,21 @@ The master door *must* be Unlocked to operate any secondary doors. If it is not,
 DoorMaster characters are created automatically when you first install the script, and are set on the appropriate tokens to allow players to interact with them. These characters are essential for player interaction and *must not be deleted.*
 
 The "DoorMaster" character is used for all visible doors and has four token action buttons:
-- *Use* - Use a door or switch. This should be the first button used. It will open and close Unlocked doors, and provides feedback on the State of the door if it cannot be opened.
-- *Pick* - This button begins the steps to make an attempt to pick a lock. If the player controls more than one character, they will be asked to select which character is making the attempt. The list of characters will only include characters to which the player has specifically been assigned control, i.e. no character with the "All Players" assignment.
+- **Use** - Use a door or switch. This should be the first button used. It will open and close Unlocked doors, and provides feedback on the State of the door if it cannot be opened.
+- **Pick** - This button begins the steps to make an attempt to pick a lock. If the player controls more than one character, they will be asked to select which character is making the attempt. The list of characters will only include characters to which the player has specifically been assigned control, i.e. no character with the "All Players" assignment.
 
   The player will then be provided a "Pick Lock" button which will allow them to select the Dexterity skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to pick a lock.
 
    If enabled in [config](#configuration), a fumble at trying to pick the lock can result in the lock being Disabled. This prevents use of a key or subsequent attempts to pick the lock.
-- *Break* - This button begins an attempt to open the door by force. As above, if the player controls more than one character, they will be asked to select which character is making the attempt.
+- **Break** - This button begins an attempt to open the door by force. As above, if the player controls more than one character, they will be asked to select which character is making the attempt.
 
   The player will then be provided a "Force Door" button which will allow them to select the Strength skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to break a door.
 
    If the attempt to force the door open succeeds, there is a 20% chance to break the door (setting it to the Broken [State](#door-states)) completely, rendering the door useless. If a Locked door is forced open, there is also a 10% chance to destroy the lock (Disabled).
-- *Help* Shows a help menu that explains the other token action buttons.
+- **Help** - Shows a help menu that explains the other token action buttons.
 
 The "DoorMaster Keyed" character adds the following token action button:
-- *Key* - This button prompts the player to enter a passphrase. If the passphrase is correct, the door will be unlocked. If the [key reset function](#keyed-doors) is off, this button will also allow the door to be locked using the passphrase as well.
+- **Key** - This button prompts the player to enter a passphrase. If the passphrase is correct, the door will be unlocked. If the [key reset function](#keyed-doors) is off, this button will also allow the door to be locked using the passphrase as well.
 
 The "DoorMaster Switch" character is set on non-hidden switch tokens, and only provides the *Use* and *Help* buttons.
 
@@ -126,10 +126,10 @@ You can see the stats for any door by using the `!door status` command with any 
 ## Configuration
 
 The Configuration Menu allows you to change thsee DoorMaster options:
-- **Door Auras** You can use an aura to indicate to players that a door token can be interacted with. The default is "on" and the color is set to an unobtrusive medium grey. You can turn this feature off and on, and change the color.
-- **Hidden Door Indicator** This is a aura used to show the GM a door that is Secret or Concealed. You cannot turn it off, but you can change the color.
-- **Lock Picking Fumbles** You can choose to allow fumbles at lock picking attempts to disable the door's lock (Disabled), preventing it from being unlocked by key or more picking attempts. Default is On.
-- **Show Results** You can choose to show players the results of their lock picking and door breaking attempts. If turned off, players will only see a "success" or "fail" dialog. If on, this dialog will also include the roll result, the skill they used, and whether or not they rolled at Advantage or Disadvantage. Default is Off. *These results are always provided to the GM.*
+- **Door Auras** - You can use an aura to indicate to players that a door token can be interacted with. The default is "on" and the color is set to an unobtrusive medium grey. You can turn this feature off and on, and change the color.
+- **Hidden Door Indicator** - This is a aura used to show the GM a door that is Secret or Concealed. You cannot turn it off, but you can change the color.
+- **Lock Picking Fumbles** - You can choose to allow fumbles at lock picking attempts to disable the door's lock (Disabled), preventing it from being unlocked by key or more picking attempts. Default is On.
+- **Show Results** - You can choose to show players the results of their lock picking and door breaking attempts. If turned off, players will only see a "success" or "fail" dialog. If on, this dialog will also include the roll result, the skill they used, and whether or not they rolled at Advantage or Disadvantage. Default is Off. *These results are always provided to the GM.*
 
 The Configuration Menu also tells you how many doors you've created so far, and gives a button for [creating a door](#door-creation) or viewing a selected door's [status](#door-status).
 
