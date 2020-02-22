@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '3.0',
-    debugMode = false,
+    var version = '3.1',
+    debugMode = true,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
         title: 'padding: 0 0 6px 0; color: ##591209; font-size: 1.5em; font-weight: bold; font-variant: small-caps; font-family: "Times New Roman",Times,serif;',
@@ -46,16 +46,8 @@ var DoorMaster = DoorMaster || (function () {
         if (typeof state['DoorMaster'].useAura == 'undefined') state['DoorMaster'].useAura = true;
         if (typeof state['DoorMaster'].doorAuraColor == 'undefined') state['DoorMaster'].doorAuraColor = '#666666';
         if (typeof state['DoorMaster'].hiddenAuraColor == 'undefined') state['DoorMaster'].hiddenAuraColor = '#99cc99';
-
         if (state['DoorMaster'].doorKeyedCharID == '' || state['DoorMaster'].switchCharID == '' || state['DoorMaster'].lockCharID == '') state['DoorMaster'].showInit = true;
-        if (typeof state['DoorMaster'].doorCharID != 'undefined' && state['DoorMaster'].doorCharID != '') {
-            var attrs = findObjs({type: 'ability', characterid: state['DoorMaster'].doorCharID}, {caseInsensitive: true});
-            _.each(attrs, function (attr) {
-                if (attr.get('name') == 'Use Door') attr.set({name: 'Use'});
-                if (attr.get('name') == 'Pick Lock') attr.set({name: 'Pick'});
-                if (attr.get('name') == 'Break Door') attr.set({name: 'Break'});
-            });
-        }
+        runUpgrades();
 
         log('--> DoorMaster v' + version + ' <-- Initialized');
 		if (debugMode) {
@@ -236,6 +228,8 @@ var DoorMaster = DoorMaster || (function () {
             else new_door.switch_hidden = {original: false, current: false};
             if (new_door.lock_hidden) new_door.lock_hidden = {original: true, current: true};
             else new_door.lock_hidden = {original: false, current: false};
+            new_door.label = {door: 'door', switch: 'switch'};
+
             _.each(msg.selected, function (obj) {
                 var token = getObj(obj._type, obj._id);
                 if (token) {
@@ -276,7 +270,7 @@ var DoorMaster = DoorMaster || (function () {
                 }
             });
             state['DoorMaster'].doors.push(new_door);
-            commandDoorStatus({content: '!door status ' + new_door.id}, 'Your new door has been created.');
+            commandDoorStatus({content: '!door status ' + new_door.id}, 'Your new ' + new_door.label['door'] + ' has been created.');
         } else {
             showDialog('Creation Error', 'You need at least one token named "Open" and one named "Closed" to create a door.', 'GM');
         }
@@ -305,41 +299,41 @@ var DoorMaster = DoorMaster || (function () {
 
                             if (roll_result.final >= door.breakDC) {
                                 title = 'Success!';
-                                message = char.get('name') + ' has successfully broken the door open';
+                                message = char.get('name') + ' has successfully broken the ' + door.label['door'] + ' open';
 
                                 // Assess the damage...
                                 var break_chance = randomInteger(100) + ((roll_result.final - door.breakDC) * 2);
                                 if (break_chance >= 80) {
                                     door.condition = 'Broken';
-                                    message += ', but has ruined it. The door will no longer close.';
+                                    message += ', but has ruined it. The ' + door.label['door'] + ' will no longer close.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char.get('name') + ' has successfully broken through the door but destroyed it.<br>' + gm_display, 'GM');
+                                    showDialog('', char.get('name') + ' has successfully broken through the ' + door.label['door'] + ' but destroyed it.<br>' + gm_display, 'GM');
                                 } else if (break_chance >= 70 && door.condition == 'Locked') {
                                     door.condition = 'Disabled';
                                     message += ', but has damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char.get('name') + ' has successfully broken through the door but damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.<br>' + gm_display, 'GM');
+                                    showDialog('', char.get('name') + ' has successfully broken through the ' + door.label['door'] + ' but damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.<br>' + gm_display, 'GM');
                                 } else {
                                     door.condition = 'Unlocked';
                                     message += '.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char.get('name') + ' has successfully broken the door open.<br>' + gm_display, 'GM');
+                                    showDialog('', char.get('name') + ' has successfully broken the ' + door.label['door'] + ' open.<br>' + gm_display, 'GM');
                                 }
                                 if (door.condition == 'Broken') breakDoor(door);
                                 else toggleDoorOpen(door);
                             } else {
                                 title = 'Fail!';
-                                message = char.get('name') + ' has not succeeded in breaking through the door.';
+                                message = char.get('name') + ' has not succeeded in breaking through the ' + door.label['door'] + '.';
                                 if (door.condition == 'Unlocked') message += ' However, you could just try opening it...';
                                 if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                showDialog('', char.get('name') + ' has not succeeded in breaking through the door.<br>' + gm_display, 'GM');
+                                showDialog('', char.get('name') + ' has not succeeded in breaking through the ' + door.label['door'] + '.<br>' + gm_display, 'GM');
                             }
                         } else if (char_id || _.size(chars) == 1) {
                             // If one (or selected) character, give action for attempt to break
                             title = '';
                             char_id = (!char_id) ? chars[0].get('id') : char_id;
                             var char = (!char_id) ? chars[0].get('id') : getObj('character', char_id);
-                            message = '<div style="' + styles.buttonWrapper + '">' + char.get('name') + ': <a style="' + styles.button + '" href="!door break ' + char_id + ' ?{Select skill' + getSkills(char_id, 'STR') + '} ?{Advantage or Disadvantage|Neither,0|Advantage,+1|Disadvantage,-1}" title="' + char.get('name') + ' will attempt to break the door open.">Force Door</a></div>';
+                            message = '<div style="' + styles.buttonWrapper + '">' + char.get('name') + ': <a style="' + styles.button + '" href="!door break ' + char_id + ' ?{Select skill' + getSkills(char_id, 'STR') + '} ?{Advantage or Disadvantage|Neither,0|Advantage,+1|Disadvantage,-1}" title="' + char.get('name') + ' will attempt to break the ' + door.label['door'] + ' open.">Break Open</a></div>';
                         } else {
                             // If more than one character, make character selection
                             title = '';
@@ -363,34 +357,34 @@ var DoorMaster = DoorMaster || (function () {
                                     return;
                                 }
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
-                                    message = 'This door has a switch that must be used.';
+                                    message = 'This door has a ' + door.label['switch'] + ' that must be used.';
                                 } else if (token.get('id') == door.lock_id && action == 'pick') {
                                     message = 'This door is already unlocked and cannot be operated from here.';
                                 } else {
                                     toggleDoorOpen(door);
                                     if (action == 'pick') {
-                                        message = 'Um... This door was already unlocked.';
+                                        message = 'Um... This ' + door.label['door'] + ' was already unlocked.';
                                     } else show_dialog = false;
                                 }
                                 break;
                             case 'Locked':
                                 title = 'Locked';
-                                message = typeof door.lock_id == 'undefined' ? 'You cannot open the door without a key... or try another method.' : '... yet there is no lock visible on the door.';
+                                message = typeof door.lock_id == 'undefined' ? 'You cannot open the ' + door.label['door'] + ' without a key... or try another method.' : '... yet there is no lock visible on the ' + door.label['door'] + '.';
 
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
                                     title = '';
-                                    message = 'This door has a switch that must be used.';
+                                    message = 'This ' + door.label['door'] + ' has a ' + door.label['switch'] + ' that must be used.';
                                     break;
                                 }
 
                                 if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
-                                    message = 'The switch will not budge.';
+                                    message = 'The ' + door.label['switch'] + ' will not budge.';
                                     break;
                                 }
 
                                 if (action == 'pick') {
                                     if (typeof door.lock_id != 'undefined' && token.get('id') != door.lock_id) {
-                                        message = 'This door has no visible lock to pick...';
+                                        message = 'This ' + door.label['door'] + ' has no visible lock to pick...';
                                         break;
                                     }
 
@@ -439,7 +433,7 @@ var DoorMaster = DoorMaster || (function () {
                             case 'Disabled':
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
                                     title = '';
-                                    message = 'This door has a switch that must be used.';
+                                    message = 'This ' + door.label['door'] + ' has a ' + door.label['switch'] + ' that must be used.';
                                     break;
                                 }
 
@@ -448,55 +442,55 @@ var DoorMaster = DoorMaster || (function () {
                                     show_dialog = false;
                                 } else {
                                     title = 'Lock Disabled';
-                                    message = 'This door\'s lock has been broken and cannot be picked, nor will a key work.';
-                                    if (action == 'pick') message = 'This door\'s lock has been broken and cannot be picked.' + (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this door.' : ' Your attempt to pick it is futile.');
+                                    message = 'This ' + door.label['door'] + '\'s lock has been broken and cannot be picked, nor will a key work.';
+                                    if (action == 'pick') message = 'This ' + door.label['door'] + '\'s lock has been broken and cannot be picked.' + (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this ' + door.label['door'] + '.' : ' Your attempt to pick it is futile.');
                                     if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
-                                        message = 'The switch will not budge.';
+                                        message = 'The ' + door.label['switch'] + ' will not budge.';
                                     }
                                 }
                                 break;
                             case 'Barred':
                                 title = 'Barred';
-                                message = 'This door seems to be barred or blocked from the other side.';
-                                if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this door.' : ' Your attempt to pick it is ineffectual.');
+                                message = 'This ' + door.label['door'] + ' seems to be barred or blocked from the other side.';
+                                if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this ' + door.label['door'] + '.' : ' Your attempt to pick it is ineffectual.');
                                 if (action == 'break') message += ' You cannot hope to break through.';
                                 if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
-                                    message = 'The switch begins to move but cannot.';
+                                    message = 'The ' + door.label['switch'] + ' begins to move but cannot.';
                                 }
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
                                     title = '';
-                                    message = 'This door has a switch that must be used.';
+                                    message = 'This ' + door.label['door'] + ' has a ' + door.label['switch'] + ' that must be used.';
                                 }
                                 break;
                             case 'Stuck':
                                 title = 'Stuck';
-                                message = 'This door is stuck shut and will not open easily.';
-                                if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this door.' : ' Your attempt to pick it is inconceivable.');
+                                message = 'This ' + door.label['door'] + ' is stuck shut and will not open easily.';
+                                if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this ' + door.label['door'] + '.' : ' Your attempt to pick it is inconceivable.');
                                 if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
-                                    message = 'The switch begins to move but cannot.';
+                                    message = 'The ' + door.label['switch'] + ' begins to move but cannot.';
                                 }
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
                                     title = '';
-                                    message = 'This door has a switch that must be used.';
+                                    message = 'This ' + door.label['door'] + ' has a ' + door.label['switch'] + ' that must be used.';
                                 }
                                 break;
                             case 'Broken':
                                 title = 'Broken';
-                                message = 'This door is broken and cannot be opened or closed.';
-                                if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this door.' : ' Your attempt to pick it is absurd.');
-                                if (action == 'break') message = 'Why are you attacking a broken door?';
+                                message = 'This ' + door.label['door'] + ' is broken and cannot be opened or closed.';
+                                if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this ' + door.label['door'] + '.' : ' Your attempt to pick it is absurd.');
+                                if (action == 'break') message = 'Why are you attacking a broken ' + door.label['door'] + '?';
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
-                                    message = 'Why are you playing with the switch?';
+                                    message = 'Why are you playing with the ' + door.label['switch'] + '?';
                                 }
                         }
                     }
 
                     if (show_dialog) showDialog(title, message, msg.who);
 
-                } else showDialog('Door Use Error', 'Invalid door ID.', msg.who);
+                } else showDialog('Door Use Error', 'Invalid ID.', msg.who);
             } else showDialog('Door Use Error', 'Invalid token.', msg.who);
         } else {
-            showDialog('Door Use Error', 'You must select a door or switch token.', msg.who);
+            showDialog('Door Use Error', 'You must select a valid token.', msg.who);
         }
     },
 
@@ -640,7 +634,7 @@ var DoorMaster = DoorMaster || (function () {
 
             state['DoorMaster'].doors = _.reject(state['DoorMaster'].doors, function (x) { return x.id == door.id; });
             showDialog('Destruction Complete', 'The door tokens have all been unlocked and all pieces returned to the token layer.', 'GM');
-        } else showDialog('Destruction Error', (_.size(msg.selected) != 1 ? 'Too many tokens selected.' : 'Invalid door ID.'), 'GM');
+        } else showDialog('Destruction Error', (_.size(msg.selected) != 1 ? 'Too many tokens selected.' : 'Invalid ID.'), 'GM');
     },
 
     // Links selected doors to the indicated Master door
@@ -768,66 +762,82 @@ var DoorMaster = DoorMaster || (function () {
             if (token) {
                 var token_id = token.get('id');
                 door = getDoorFromTokenID(token_id);
-            } else showDialog('Door Status Error', 'Invalid token.', 'GM');
-        } else showDialog('Door Status Error', 'You must select a door or switch token.', 'GM');
+            } else showDialog('Status Error', 'Invalid token.', 'GM');
+        } else showDialog('Status Error', 'You must select a door or switch token.', 'GM');
 
         if (door) {
             var actions = parms[3] ? parms[3].split('|') : [];
-            if (actions[0] == '--token-lock') {
-                state['DoorMaster'].lockedTokens.push(door.open_id);
-                state['DoorMaster'].lockedTokens.push(door.closed_id);
-                if (typeof door.switch_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.switch_id);
-                if (typeof door.switch2_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.switch2_id);
-                if (typeof door.broken_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.broken_id);
-                if (typeof door.lock_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.lock_id);
-                door.tokens_locked = true;
-                alert = 'All door tokens have been locked.';
-            }
-            if (actions[0] == '--set-cond' && actions[1] && _.find(DOOR_CONDITIONS, function (x) { return x == actions[1]; })) {
-                if (door.open && actions[1] != 'Unlocked' && actions[1] != 'Disabled') toggleDoorOpen(door);
-                door.condition = actions[1];
-                alert = 'Condition has been updated.';
-            }
-            if (actions[0] == '--reveal-door') {
-                revealDoor(door);
-                alert = 'Door has been revealed.';
-            }
-            if (actions[0] == '--reveal-switch') {
-                revealSwitch(door);
-                alert = 'Switch has been revealed.';
-            }
-            if (actions[0] == '--keyhole') {
-                enableKey(door);
-                alert = 'Key has been enabled.';
-            }
-            if (actions[0] == '--show-lock') {
-                enableLock(door);
-                alert = 'Lock has been enabled.';
-            }
-            if (actions[0] == '--passphrase') {
-                var passphrase = msg.content.split(/\s*\|\s*/i);
-                if (passphrase[1] && passphrase[1].trim() != '') {
-                    door.lock_passphrase = passphrase[1].trim();
-                    alert = 'Passphrase has been updated.';
-                } else {
-                    alert = '⚠️ Passphrase was blank! Not changed.';
-                }
-            }
-            if (actions[0] == '--toggle-aon') {
-                door.all_or_nothing = !door.all_or_nothing;
-                alert = 'All-or-nothing has been updated.';
-            }
-            if (actions[0] == '--toggle-key-reset') {
-                door.key_reset = !door.key_reset;
-                alert = 'Key reset has been updated.';
-            }
-            if (actions[0] == '--lock-dc' && actions[1] && actions[1] != '' && isNum(actions[1])) {
-                door.lockDC = parseInt(actions[1]);
-                alert = 'Lock DC has been updated.';
-            }
-            if (actions[0] == '--break-dc' && actions[1] && actions[1] != '' && isNum(actions[1])) {
-                door.breakDC = parseInt(actions[1]);
-                alert = 'Break DC has been updated.';
+            switch (actions[0]) {
+                case '--token-lock':
+                    state['DoorMaster'].lockedTokens.push(door.open_id);
+                    state['DoorMaster'].lockedTokens.push(door.closed_id);
+                    if (typeof door.switch_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.switch_id);
+                    if (typeof door.switch2_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.switch2_id);
+                    if (typeof door.broken_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.broken_id);
+                    if (typeof door.lock_id != 'undefined') state['DoorMaster'].lockedTokens.push(door.lock_id);
+                    door.tokens_locked = true;
+                    alert = 'All door tokens have been locked.';
+                    break;
+                case '--set-cond':
+                    if (actions[1] && _.find(DOOR_CONDITIONS, function (x) { return x == actions[1]; })) {
+                        if (door.open && actions[1] != 'Unlocked' && actions[1] != 'Disabled') toggleDoorOpen(door);
+                        door.condition = actions[1];
+                        alert = 'Condition has been updated.';
+                    }
+                    break;
+                case '--lock-dc':
+                    if (actions[1] && actions[1] != '' && isNum(actions[1])) {
+                        door.lockDC = parseInt(actions[1]);
+                        alert = 'Lock DC has been updated.';
+                    }
+                    break;
+                case '--break-dc':
+                    if (actions[1] && actions[1] != '' && isNum(actions[1])) {
+                        door.breakDC = parseInt(actions[1]);
+                        alert = 'Break DC has been updated.';
+                    }
+                    break;
+                case '--reveal-door':
+                    revealDoor(door);
+                    alert = initCap(door.label['door']) + ' has been revealed.';
+                    break;
+                case '--reveal-switch':
+                    revealSwitch(door);
+                    alert = initCap(door.label['switch']) + ' has been revealed.';
+                    break;
+                case '--keyhole':
+                    enableKey(door);
+                    alert = 'Key has been enabled.';
+                    break;
+                case '--show-lock':
+                    enableLock(door);
+                    alert = 'Lock has been enabled.';
+                    break;
+                case '--passphrase':
+                    var passphrase = msg.content.split(/\s*\|\s*/i);
+                    if (passphrase[1] && passphrase[1].trim() != '') {
+                        door.lock_passphrase = passphrase[1].trim();
+                        alert = 'Passphrase has been updated.';
+                    } else {
+                        alert = '⚠️ Passphrase was blank! Not changed.';
+                    }
+                    break;
+                case '--toggle-aon':
+                    door.all_or_nothing = !door.all_or_nothing;
+                    alert = 'All-or-nothing has been updated.';
+                    break;
+                case '--toggle-key-reset':
+                    door.key_reset = !door.key_reset;
+                    alert = 'Key reset has been updated.';
+                    break;
+                case '--label-door':
+                    door.label['door'] = actions[1].toLowerCase().trim();
+                    alert = 'Door label has been updated.';
+                    break;
+                case '--label-switch':
+                    door.label['switch'] = actions[1].toLowerCase().trim();
+                    alert = 'Switch label has been updated.';
+                    break;
             }
 
             if (alert != '') {
@@ -836,7 +846,8 @@ var DoorMaster = DoorMaster || (function () {
 
             message += '<p>';
             message += '<b>Condition:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set Condition|Unlocked|Locked|Barred|Stuck|Disabled}" title="Change condition">' + door.condition + '</a><br>';
-            message += '<b>Visibility:</b> ' + (door.hidden ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-door" title="Reveal door to players">' + door.visibility + '</a>' : door.visibility) + '<br>';
+            message += '<b>Visibility:</b> ' + (door.hidden ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-door" title="Reveal ' + door.label['door'] + ' to players">' + door.visibility + '</a>' : door.visibility) + '<br>';
+            message += '<b>Door Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-door|?{Label|' + door.label['door'] + '}" title="Change door label">' + door.label['door'] + '</a><br>';
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
             message += '<b>Break DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --break-dc|?{Break DC|' + door.breakDC + '}" title="Change break DC">' + door.breakDC + '</a><br>';
 
@@ -845,24 +856,24 @@ var DoorMaster = DoorMaster || (function () {
                 if (typeof door.lock_id != 'undefined') {
                     message += '<b>External Lock:</b> ' + (door.lock_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --show-lock" title="Allow players to use lock">Enable Lock</a>' : 'Lock enabled') + '<br>';
                 } else {
-                    message += '<b>Keyed Door:</b> ' + (door.key_char_id == state['DoorMaster'].doorCharID ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --keyhole" title="Allow players to use key">Enable key</a>' : 'Key enabled') + '<br>';
+                    message += '<b>Keyed:</b> ' + (door.key_char_id == state['DoorMaster'].doorCharID ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --keyhole" title="Allow players to use key">Enable key</a>' : 'Key enabled') + '<br>';
                 }
                 message += '<b>Key Reset:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-key-reset" title="Turn key reset ' + (door.key_reset ? 'OFF' : 'ON') + '">' + (door.key_reset ? 'ON' : 'OFF') + '</a><br>';
                 message += '<b>Passphrase:</b> <i>' + door.lock_passphrase + '</i> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door status ' + door.id + ' --passphrase|?{Passphrase|' + door.lock_passphrase + '}" title="Change lock passphrase">&Delta;</a><br>';
                 message += '<hr style="margin: 4px 12px;">';
             }
 
-            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal switch to players">Hidden</a>' : 'Visible')) + '<br>';
+            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal ' + door.label['switch'] + ' to players">Hidden</a>' : 'Visible')) + '<br>';
+            if (typeof door.switch_id != 'undefined') message += '<b>Switch Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-switch|?{Label|' + door.label['switch'] + '}" title="Change switch label">' + door.label['switch'] + '</a><br>';
 
-            message += '<b>"Broken" graphic?</b> ' + (typeof door.broken_id == 'undefined' ? 'no' : 'yes') + '<br>';
             message += '<b>Tokens locked?</b> ' + (door.tokens_locked ? 'Yes' : '<span style="color: #C91010;">No</span> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --token-lock" title="Lock all associated tokens">lock</a>') + '</p>';
 
             message += '<p><b>Linked Doors:</b> ' + (typeof door.linked != 'undefined' ? _.size(door.linked) : 'none') + ' <a style=\'' + styles.textButton + '\' href="!door link ' + door.id + '" title="Link selected door(s)">link</a><br>';
             if (typeof door.linked != 'undefined') message += '<b>All-or-nothing?</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-aon" title="Turn all-or-nothing ' + (door.all_or_nothing ? 'OFF' : 'ON') + '">' + (door.all_or_nothing ? 'ON' : 'OFF') + '</a>';
 
             message += '</p>';
-            showDialog((door.open ? 'Open Door' : 'Closed Door'), message, 'GM');
-        } else showDialog('Door Status Error', 'Invalid door ID.', 'GM');
+            showDialog((door.open ? 'Open ' + initCap(door.label['door']) : 'Closed ' + initCap(door.label['door'])), message, 'GM');
+        } else showDialog('Door Status Error', 'Invalid ID.', 'GM');
     },
 
     getDoorFromTokenID = function (token_id) {
@@ -884,6 +895,13 @@ var DoorMaster = DoorMaster || (function () {
             return (_.find(controllers, function (x) { return x == player_id; }) && parseInt(level) > 0);
         });
         return chars;
+    },
+
+    // Sets first letter of string to a capital
+    initCap = function (str) {
+        var str = str.split('');
+        str[0] = str[0].toUpperCase();
+        return str.join('');
     },
 
     getSkills = function (char_id, attribute = 'DEX') {
@@ -1075,6 +1093,25 @@ var DoorMaster = DoorMaster || (function () {
             if (_.find(charAttrs, function (x) { return x.get('name').search('mancer') != -1; })) sheet = '5th Edition OGL';
         }
         return sheet;
+    },
+
+    runUpgrades = function () {
+        // 3.0 upgrade
+        if (typeof state['DoorMaster'].doorCharID != 'undefined' && state['DoorMaster'].doorCharID != '') {
+            var attrs = findObjs({type: 'ability', characterid: state['DoorMaster'].doorCharID}, {caseInsensitive: true});
+            _.each(attrs, function (attr) {
+                if (attr.get('name') == 'Use Door') attr.set({name: 'Use'});
+                if (attr.get('name') == 'Pick Lock') attr.set({name: 'Pick'});
+                if (attr.get('name') == 'Break Door') attr.set({name: 'Break'});
+            });
+        }
+
+        // 3.1 upgrade
+        if (_.size(state['DoorMaster'].doors) > 0) {
+            _.each(state['DoorMaster'].doors, function (door) {
+                if (typeof door.label == 'undefined') door.label = {door: 'door', switch: 'switch'};
+            });
+        }
     },
 
     generateUniqueID = function () {

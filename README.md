@@ -1,6 +1,6 @@
 # DoorMaster
 
-> **New in 3.0:** Doors can now have actual keys! Also, switches can be hidden, revealed later manually.
+> **New in 3.1:** Doors and Switches can be re-labeled to enable use for other objects. Now use DoorMaster for treasure chests, cabinets, etc., and use levers, dials or any other device to open them.
 
 This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. You have the option to lock all related tokens to prevent them from accidentally being moved.
 
@@ -96,7 +96,7 @@ The "DoorMaster" character is used for all visible doors and has four token acti
    If enabled in [config](#configuration), a fumble at trying to pick the lock can result in the lock being Disabled. This prevents use of a key or subsequent attempts to pick the lock.
 - **Break** - This button begins an attempt to open the door by force. As above, if the player controls more than one character, they will be asked to select which character is making the attempt.
 
-  The player will then be provided a "Force Door" button which will allow them to select the Strength skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to break a door.
+  The player will then be provided a "Break Open" button which will allow them to select the Strength skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to break a door.
 
    If the attempt to force the door open succeeds, there is a 20% chance to break the door (setting it to the Broken [State](#door-states)) completely, rendering the door useless. If a Locked door is forced open, there is also a 10% chance to destroy the lock (Disabled).
 - **Help** - Shows a help menu that explains the other token action buttons.
@@ -112,6 +112,7 @@ The "DoorMaster Lock" character is set on non-hidden lock tokens, and provides t
 
 You can see the stats for any door by using the `!door status` command with any door token selected. You will be provided the following information:
 - Whether the door is open or closed
+- Re-label the door and switch. Enter a word for each to better represent the object. Change "door" to "chest", "switch" to "lever", etc. All player dialogs will use the new label.
 - The [State](#door-states) of the door (editable)
 - The [Visibility](#door-visibility) of the door (reveal only)
 - The current Lock DC (editable)
@@ -120,12 +121,11 @@ You can see the stats for any door by using the `!door status` command with any 
 - If keyed, shows the passphrase (editable)
 - If keyed, shows if Key Reset is on or off (toggle)
 - Whether there is a Switch, and its visibility (reveal only)
-- Whether there is a Broken graphic
 - Whether the tokens are locked (lockable)
 
 ## Configuration
 
-The Configuration Menu allows you to change thsee DoorMaster options:
+The Configuration Menu allows you to change these DoorMaster options:
 - **Door Auras** - You can use an aura to indicate to players that a door token can be interacted with. The default is "on" and the color is set to an unobtrusive medium grey. You can turn this feature off and on, and change the color.
 - **Hidden Door Indicator** - This is a aura used to show the GM a door that is Secret or Concealed. You cannot turn it off, but you can change the color.
 - **Lock Picking Fumbles** - You can choose to allow fumbles at lock picking attempts to disable the door's lock (Disabled), preventing it from being unlocked by key or more picking attempts. Default is On.
