@@ -1,6 +1,6 @@
 # DoorMaster
 
-> **New in 3.1:** Doors and Switches can be re-labeled to enable use for other objects. Now use DoorMaster for treasure chests, cabinets, etc., and use levers, dials or any other device to open them.
+> **New in 4.0:** Doors can now be [trapped](#trapped-doors)!
 
 This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. You have the option to lock all related tokens to prevent them from accidentally being moved.
 
@@ -83,6 +83,43 @@ Once you have linked doors, there is an "all-or-nothing" toggle. Setting this to
 
 The master door *must* be Unlocked to operate any secondary doors. If it is not, players will receive the standard feedback based on the master door's [State](#door-states).
 
+## Trapped Doors
+
+You can create a door that is trapped by adding data to the "Open" door token before [door creation](#door-creation). Every trap has a trigger, a Disable DC, and a trap effect. This information goes into the Open token's first Bar 1, Bar 2, and GM Notes fields, respectively, and are highlighted below.
+
+Most traps must be manually reset once they have been triggered, while others do not need to be reset or have a mechanism that automatically resets the trap. Once your trapped door is created, you will be able to tell DoorMaster from the [Status window](#door-status) whether the trap should be automatically reset after it gets triggered. The default is Off. You can also reset the trap manually in the Status window.
+
+Some traps may render a door unusable once triggered, either because damage to the door or other factors. From the Status window, you can set whether triggering the effect will "break" the door. The default is Off.
+
+You can also provide an optional token named "Trap" to give a graphic representation of the trap after the effect has been triggered. This may be a blade, spike pit, soot from an explosion, etc.
+
+Detecting traps is out of the scope of this script and the GM will follow the same procedures as always for trap detection. Once a character has successfully detected a trap on the door, however, a "Disable" token action button can be made available through the Status window. This will allow a character to attempt to disable the trap in the same manner as picking a lock. If the attempt is successful, the trap is disabled and the button will go away.
+
+### Triggers
+
+A trigger is an action the player takes on the door that sets off the trap's effect. A trap may have more than one trigger depending on the kind of trap. Below are the possible triggers and how they work:
+- **Open** - Any time a door is opened. A door must be closed and [Unlocked](#door-states) before this trigger will fire, or be forced open using the [Break button](#doormaster-characters).
+- **Touch** - Any time a door is touched. This trigger is set off by **any** use of the Use, Pick, Break, _or Disable_ buttons and applies to all door States except Broken. If not using a [Lock token](#lock-tokens), using the Key button on the door will also trigger the trap.
+
+  Note: This trigger supersedes **all** interactions. It is highly recommended to keep the trap reset function off (see above) when using this trigger.
+- **Pick** - Whenever is door's lock is picked, _whether or not_ the attempt is successful. Lockpicking traps only trigger when the actual attempt is made, so players will go through the entire decision process until the Pick Lock button is executed for the selected character.
+- **Fail-Pick** - When an attempt to pick a lock fails. Successful attempts will not trigger the trap.
+- **Unlock** - When a door is unlocked, either by successfully picking the lock _or_ using a key.
+
+You _must_ provide at least one trigger in order to set a door as being trapped. If the Open token's first Bar 1 field is empty or does not match one of the above triggers, the door will not be trapped.
+
+### Disable DC
+
+The Disable DC is used when a character attempts to disable the trap. If no DC is given, it will default to 15.
+
+### Trap Effect
+
+The trap effect is provided in the Open token's GM Notes field. You can give as much information as you wish here, depending on your trap and what should happen once it's triggered: darts flying out of the wall, a blade slicing out, ceiling drops, etc. An alternative option, particularly for traditional traps, is to use a [roll template](https://roll20.zendesk.com/hc/en-us/articles/360037257334-How-to-Make-Roll-Templates). This allows you to provide an "attack" style dialog with rolled damage, saving throw links/buttons and any other information you like that matches a familiar format.
+
+If you wish to use the name of the character who triggered the trap in your effect description - such as in the "targetName" field of the 5e-shaped template - use `[WHO]` in place of the name and DoorMaster will substitute it with the name of the character. If the script cannot determine which character is using the door, they will simply be called "Victim".
+
+If not using a roll template, you can still provide die roll expressions that will be executed whenever the trap is triggered. In your effect description, surround your die expression in @ signs, i.e. `@1d8+2@`. You may use as many die expressions as you want and each will be evaluated separately. You **should not** use @ signs for any other purpose or it will give unintended results.
+
 ## DoorMaster Characters
 
 DoorMaster characters are created automatically when you first install the script, and are set on the appropriate tokens to allow players to interact with them. These characters are essential for player interaction and *must not be deleted.*
@@ -104,6 +141,11 @@ The "DoorMaster" character is used for all visible doors and has four token acti
 The "DoorMaster Keyed" character adds the following token action button:
 - **Key** - This button prompts the player to enter a passphrase. If the passphrase is correct, the door will be unlocked. If the [key reset function](#keyed-doors) is off, this button will also allow the door to be locked using the passphrase as well.
 
+The "DoorMaster Trapped" character adds the following token action button:
+- **Disable** - This button allows an attempt to disable a trap. If the player controls more than one character, they will be asked to select which character is making the attempt. A "Disable Trap" button will then appear to allow them to select the Dexterity skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to disable a trap.
+
+The "DoorMaster Trapped Keyed" character combines the functionality of the "DoorMaster Keyed" and "DoorMaster Trapped" in for doors that are both trapped and keyed.
+
 The "DoorMaster Switch" character is set on non-hidden switch tokens, and only provides the *Use* and *Help* buttons.
 
 The "DoorMaster Lock" character is set on non-hidden lock tokens, and provides the *Key*, *Pick*, and *Help* buttons.
@@ -117,10 +159,16 @@ You can see the stats for any door by using the `!door status` command with any 
 - The [Visibility](#door-visibility) of the door (reveal only)
 - The current Lock DC (editable)
 - The current Break DC (editable)
+- Whether there is a Switch, and its visibility (reveal only)
 - If [keyed](#keyed-doors), whether the lock is enabled (enable only)
 - If keyed, shows the passphrase (editable)
 - If keyed, shows if Key Reset is on or off (toggle)
-- Whether there is a Switch, and its visibility (reveal only)
+- If [trapped](#trapped-doors), whether the trap is active (toggle)
+- If trapped, the current Disable DC (editable)
+- If trapped, a list of the Triggers
+- If trapped, whether the trap resets after it's triggered (toggle)
+- If trapped, whether the door is Broken after it's triggered (toggle)
+- If trapped, the beginning words of the effect
 - Whether the tokens are locked (lockable)
 
 ## Configuration
@@ -129,10 +177,11 @@ The Configuration Menu allows you to change these DoorMaster options:
 - **Door Auras** - You can use an aura to indicate to players that a door token can be interacted with. The default is "on" and the color is set to an unobtrusive medium grey. You can turn this feature off and on, and change the color.
 - **Hidden Door Indicator** - This is a aura used to show the GM a door that is Secret or Concealed. You cannot turn it off, but you can change the color.
 - **Lock Picking Fumbles** - You can choose to allow fumbles at lock picking attempts to disable the door's lock (Disabled), preventing it from being unlocked by key or more picking attempts. Default is On.
+- **Trap Disabling Fumbles** - You can choose to allow fumbles at trap disabling attempts, which will trigger the trap instead of disabling it. Default is On.
 - **Show Results** - You can choose to show players the results of their lock picking and door breaking attempts. If turned off, players will only see a "success" or "fail" dialog. If on, this dialog will also include the roll result, the skill they used, and whether or not they rolled at Advantage or Disadvantage. Default is Off. *These results are always provided to the GM.*
 
 The Configuration Menu also tells you how many doors you've created so far, and gives a button for [creating a door](#door-creation) or viewing a selected door's [status](#door-status).
 
 ## Destroying Doors
 
-Sometimes you may need to remove a previously created door, in case a token has been deleted or missed during creation. To do this, select any of the door's tokens and use the `!door destroy` command. This will remove the DoorMaster character from the tokens, put their respective names back ("Closed" on the Closed token, etc.), unlock the tokens if they have been locked, remove any auras, and return all existing tokens and paths to the token layer. The Closed token will have the current State, Visibility, and DCs written to the appropriate fields.
+Sometimes you may need to remove a previously created door, in case a token has been deleted, or missed during creation. To do this, select any of the door's tokens and use the `!door destroy` command. This will remove the DoorMaster character from the tokens, put their respective names back ("Closed" on the Closed token, etc.), unlock the tokens if they have been locked, remove any auras, and return all existing tokens and paths to the token layer. The Closed token will have the current State, Visibility, and DCs written to the appropriate fields.

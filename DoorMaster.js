@@ -14,7 +14,7 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '3.1',
+    var version = '4.0',
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -23,30 +23,29 @@ var DoorMaster = DoorMaster || (function () {
         textButton: 'background-color: transparent; border: none; padding: 0; color: #591209; text-decoration: underline;',
         buttonWrapper: 'text-align: center; margin: 10px 0; clear: both;',
         resultBox: 'margin: 3px; padding: 2px 6px; border: 1px solid #c1c1c1; border-radius: 9px; font-variant: small-caps; color: #545454;',
-        result: 'font-size: 1.25em; font-weight: bold; cursor: pointer;',
-        code: 'font-family: "Courier New", Courier, monospace; background-color: #ddd; color: #000; padding: 2px 4px;',
-        alert: 'color: #C91010; font-size: 1.5em; font-weight: bold; font-variant: small-caps; text-align: center;',
+        result: 'font-size: 1.125em; font-weight: bold; cursor: pointer; font-family: "Lucida Console", Monaco, monospace;',
         msg: 'padding: 4px 10px; color: #C91010; font-size: 1em; border: 1px solid #C91010; text-align: center;'
     },
     DOOR_CONDITIONS = ['Unlocked', 'Locked', 'Keyed', 'Barred', 'Stuck', 'Disabled', 'Broken'],
 
     checkInstall = function () {
-        if (!_.has(state, 'DoorMaster')) {
-            state['DoorMaster'] = state['DoorMaster'] || {};
-            state['DoorMaster'].showInit = true;
-        }
+        if (!_.has(state, 'DoorMaster')) state['DoorMaster'] = state['DoorMaster'] || {};
         if (typeof state['DoorMaster'].doors == 'undefined') state['DoorMaster'].doors = [];
         if (typeof state['DoorMaster'].doorCharID == 'undefined') state['DoorMaster'].doorCharID = '';
         if (typeof state['DoorMaster'].doorKeyedCharID == 'undefined') state['DoorMaster'].doorKeyedCharID = '';
         if (typeof state['DoorMaster'].switchCharID == 'undefined') state['DoorMaster'].switchCharID = '';
         if (typeof state['DoorMaster'].lockCharID == 'undefined') state['DoorMaster'].lockCharID = '';
+        if (typeof state['DoorMaster'].trapCharID == 'undefined') state['DoorMaster'].trapCharID = '';
+        if (typeof state['DoorMaster'].trapKeyedCharID == 'undefined') state['DoorMaster'].trapKeyedCharID = '';
         if (typeof state['DoorMaster'].lockedTokens == 'undefined') state['DoorMaster'].lockedTokens = [];
         if (typeof state['DoorMaster'].allowFumbles == 'undefined') state['DoorMaster'].allowFumbles = true;
+        if (typeof state['DoorMaster'].trapFumbles == 'undefined') state['DoorMaster'].trapFumbles = true;
         if (typeof state['DoorMaster'].showPlayersRolls == 'undefined') state['DoorMaster'].showPlayersRolls = false;
         if (typeof state['DoorMaster'].useAura == 'undefined') state['DoorMaster'].useAura = true;
         if (typeof state['DoorMaster'].doorAuraColor == 'undefined') state['DoorMaster'].doorAuraColor = '#666666';
         if (typeof state['DoorMaster'].hiddenAuraColor == 'undefined') state['DoorMaster'].hiddenAuraColor = '#99cc99';
-        if (state['DoorMaster'].doorKeyedCharID == '' || state['DoorMaster'].switchCharID == '' || state['DoorMaster'].lockCharID == '') state['DoorMaster'].showInit = true;
+        if (state['DoorMaster'].doorKeyedCharID == '' || state['DoorMaster'].switchCharID == '' || state['DoorMaster'].lockCharID == ''
+            || state['DoorMaster'].trapCharID == '' || state['DoorMaster'].trapKeyedCharID == '') state['DoorMaster'].showInit = true;
         runUpgrades();
 
         log('--> DoorMaster v' + version + ' <-- Initialized');
@@ -55,8 +54,7 @@ var DoorMaster = DoorMaster || (function () {
 			showDialog('Debug Mode', 'DoorMaster v' + version + ' loaded at ' + d.toLocaleTimeString() + '<br><a style=\'' + styles.textButton + '\' href="!door config">Show config</a>', 'GM');
 		}
 
-        if (state['DoorMaster'].showInit) {
-            createDoorChars();
+        if (createDoorChars()) {
             showDialog('Welcome', 'Characters have been created for use by the DoorMaster script. <i>Do not</i> rename or delete them.<div style=\'' + styles.buttonWrapper + '\'><a style=\'' + styles.button + '\' href="!door config">Show config</a></div>', 'GM');
             state['DoorMaster'].showInit = false;
         }
@@ -80,6 +78,9 @@ var DoorMaster = DoorMaster || (function () {
 						break;
 					case 'key':
 							commandUseKey(msg);
+						break;
+					case 'disable-trap':
+							commandDisableTrap(msg);
 						break;
 					case 'help':
 							commandHelp(msg);
@@ -109,6 +110,11 @@ var DoorMaster = DoorMaster || (function () {
 							commandLinkDoors(msg);
 						}
 						break;
+					case 'purge':
+						if (playerIsGM(msg.playerid)) {
+							purgeOldDoors(msg);
+						}
+						break;
 				}
 			}
 		}
@@ -128,6 +134,7 @@ var DoorMaster = DoorMaster || (function () {
             }
             if (action[0] == 'aura-toggle') state['DoorMaster'].useAura = !state['DoorMaster'].useAura;
             if (action[0] == 'fumble-toggle') state['DoorMaster'].allowFumbles = !state['DoorMaster'].allowFumbles;
+            if (action[0] == 'trap-fumble-toggle') state['DoorMaster'].trapFumbles = !state['DoorMaster'].trapFumbles;
             if (action[0] == 'show-toggle') state['DoorMaster'].showPlayersRolls = !state['DoorMaster'].showPlayersRolls;
         });
 
@@ -149,12 +156,15 @@ var DoorMaster = DoorMaster || (function () {
         message += 'Enter a hexadecimal color value without the hash (#).<br>';
         message += '<div style=\'' + styles.buttonWrapper + '\'><a style="' + styles.button + '; background-color: ' + state['DoorMaster'].hiddenAuraColor + '; color: ' + getContrastColor(state['DoorMaster'].hiddenAuraColor) + '" href="!door config --hidden-color|&#63;&#123;Color&#124;' + state['DoorMaster'].hiddenAuraColor.substr(1) + '&#125;" title="Change the Hidden Door Indicator color">Change 🎨</a></div>';
 
-        message += '<hr style="margin: 4px 12px 8px;"><div style=\'' + styles.title + '\'>Lock Picking Fumbles: ' + (state['DoorMaster'].allowFumbles ? 'On' : 'Off') + '</div>';
-        message += (state['DoorMaster'].allowFumbles ? 'You have opted' : 'You can opt') + ' to allow fumbles for lock picking attempts. On a natural 1, the lock will be rendered Disabled.<br>';
-        message += '<a style=\'' + styles.textButton + '\' href="!door config --fumble-toggle">turn ' + (state['DoorMaster'].allowFumbles ? 'off' : 'on') + '</a><br><br>';
+        message += '<hr style="margin: 4px 12px 8px;"><div style=\'' + styles.title + '\'>Fumbles:</div>';
+        message += '<b>Lock Picking:</b> <a style=\'' + styles.textButton + '\' href="!door config --fumble-toggle" title="Turn lock picking fumbles ' + (state['DoorMaster'].allowFumbles ? 'off' : 'on') + '">' + (state['DoorMaster'].allowFumbles ? 'ON' : 'OFF') + '</a><br>';
+        message += 'On a natural 1, the lock will ' + (state['DoorMaster'].allowFumbles ? '' : '<i>not</i> ') + 'be rendered Disabled.<br><br>';
+
+        message += '<B>Trap Disabling:</b> <a style=\'' + styles.textButton + '\' href="!door config --trap-fumble-toggle" title="Turn trap disabling fumbles ' + (state['DoorMaster'].trapFumbles ? 'off' : 'on') + '">' + (state['DoorMaster'].trapFumbles ? 'ON' : 'OFF') + '</a><br>';
+        message += 'On a natural 1, the trap will ' + (state['DoorMaster'].trapFumbles ? '' : '<i>not</i> ') + 'be triggered.<br><br>';
 
         message += '<hr style="margin: 4px 12px 8px;"><div style=\'' + styles.title + '\'>Show Results: ' + (state['DoorMaster'].showPlayersRolls ? 'On' : 'Off') + '</div>';
-        message += (state['DoorMaster'].showPlayersRolls ? 'You have opted' : 'You can opt') + ' to show players the roll results of their lock picking and door breaking attempts.<br>';
+        message += 'Players will ' + (state['DoorMaster'].showPlayersRolls ? '' : '<i>not</i> ') + 'see the roll results of their lock picking and door breaking attempts.<br>';
         message += '<a style=\'' + styles.textButton + '\' href="!door config --show-toggle">turn ' + (state['DoorMaster'].showPlayersRolls ? 'off' : 'on') + '</a><br><br>';
 
         message += '<hr style="margin: 4px 12px 8px;">You have created ' + (_.size(state['DoorMaster'].doors) == 0 ? 'no doors yet' : (_.size(state['DoorMaster'].doors) == 1 ? '1 door' : _.size(state['DoorMaster'].doors) + ' doors')) + '.<br>';
@@ -171,6 +181,8 @@ var DoorMaster = DoorMaster || (function () {
         if (state['DoorMaster'].allowFumbles) message += '<p>If you fumble in your attempt to pick the lock, it will be disabled and cannot be picked or unlocked thereafter.</p>';
         message += '<p><b>Break</b><br>Attempt to open the door by brute force. If you control more than one character you will be asked to select which one is making the attempt. Then you will select the skill to use, and indicate if they have Advantage or Disadvantage.</p>';
         message += '<p>Beware, you may break the door completely or destroy its lock, preventing it from being unlocked if the door gets closed.</p>';
+        message += '<p><b>Disable</b><br>Try to disable a trap. As above, you will select a character if neccessary, the skill to use, and if to use Advantage or Disadvantage on the roll.</p>';
+        if (state['DoorMaster'].trapFumbles) message += '<p>If you fumble in your attempt, you will trigger the trap.</p>';
         showDialog('DoorMaster Help', message, msg.who);
     },
 
@@ -187,27 +199,45 @@ var DoorMaster = DoorMaster || (function () {
             if (token) {
                 if (token.get('type') == 'graphic') {
                     var token_name = token.get('name').trim();
-                    if (token_name == 'Closed') {
-                        new_door.closed_id = token.get('id');
-                        new_door.condition = (_.find(DOOR_CONDITIONS, function (x) { return x == token.get('bar1_value').trim(); }) && token.get('bar1_value').trim() != 'Broken') ? token.get('bar1_value').trim() : 'Unlocked';
-                        new_door.visibility = (token.get('bar1_max') == 'Secret' || token.get('bar1_max') == 'Concealed') ? token.get('bar1_max') : 'Visible';
-                        new_door.hidden = (token.get('bar1_max') == 'Secret' || token.get('bar1_max') == 'Concealed');
-                        new_door.lockDC = (isNum(token.get('bar2_value'))) ? parseInt(token.get('bar2_value')) : 12;
-                        new_door.breakDC = (isNum(token.get('bar2_max'))) ? parseInt(token.get('bar2_max')) : (new_door.condition == 'Barred' ? 30 : 15);
-                        new_door.lock_passphrase = token.get('bar3_value').trim();
-                    } else if (token_name == 'Open') {
-                        new_door.open_id = token.get('id');
-                    } else if (token_name == 'Switch' || token_name == 'Switch1') {
-                        new_door.switch_id = token.get('id');
-                        if (token.get('bar1_value') == 'Hidden') new_door.switch_hidden = true;
-                    } else if (token_name == 'Switch2') {
-                        new_door.switch2_id = token.get('id');
-                        if (token.get('bar1_value') == 'Hidden') new_door.switch_hidden = true;
-                    } else if (token_name == 'Broken') {
-                        new_door.broken_id = token.get('id');
-                    } else if (token_name == 'Lock') {
-                        new_door.lock_id = token.get('id');
-                        if (token.get('bar1_value') == 'Hidden') new_door.lock_hidden = true;
+                    switch (token_name) {
+                        case 'Closed':
+                            new_door.closed_id = token.get('id');
+                            new_door.condition = (_.find(DOOR_CONDITIONS, function (x) { return x == token.get('bar1_value').trim(); }) && token.get('bar1_value').trim() != 'Broken') ? token.get('bar1_value').trim() : 'Unlocked';
+                            new_door.visibility = (token.get('bar1_max') == 'Secret' || token.get('bar1_max') == 'Concealed') ? token.get('bar1_max') : 'Visible';
+                            new_door.hidden = (token.get('bar1_max') == 'Secret' || token.get('bar1_max') == 'Concealed');
+                            new_door.lockDC = (isNum(token.get('bar2_value'))) ? parseInt(token.get('bar2_value')) : 12;
+                            new_door.breakDC = (isNum(token.get('bar2_max'))) ? parseInt(token.get('bar2_max')) : (new_door.condition == 'Barred' ? 30 : 15);
+                            new_door.lock_passphrase = token.get('bar3_value').trim();
+                            break;
+                        case 'Open':
+                            new_door.open_id = token.get('id');
+                            if (token.get('bar1_value') != '') {
+                                new_door.trap = {triggers: [], disableDC: '', hidden: true, disabled: false, disable_after_trigger: true, break_door: false, effect: ''};
+                                new_door.trap['triggers'] = getTriggers(token.get('bar1_value'));
+                                new_door.trap['disableDC'] = (token.get('bar2_value') != '' ? parseInt(token.get('bar2_value')) : 15);
+                                new_door.trap['break_door'] = (_.find(['true', 'yes', '1', 'on'], function (x) { return x == token.get('bar3_value').trim().toLowerCase(); }) ? true : false);
+                                new_door.trap['effect'] = processGMNotes(token.get('gmnotes'));
+                            }
+                            break;
+                        case 'Switch':
+                        case 'Switch1':
+                            new_door.switch_id = token.get('id');
+                            if (token.get('bar1_value') == 'Hidden') new_door.switch_hidden = true;
+                            break;
+                        case 'Switch2':
+                            new_door.switch2_id = token.get('id');
+                            if (token.get('bar1_value') == 'Hidden') new_door.switch_hidden = true;
+                            break;
+                        case 'Broken':
+                            new_door.broken_id = token.get('id');
+                            break;
+                        case 'Lock':
+                            new_door.lock_id = token.get('id');
+                            if (token.get('bar1_value') == 'Hidden') new_door.lock_hidden = true;
+                            break;
+                        case 'Trap':
+                            new_door.trap_id = token.get('id');
+                            break;
                     }
                 } else if (token.get('type') == 'path') {
                     paths.push(token.get('id'));
@@ -215,15 +245,16 @@ var DoorMaster = DoorMaster || (function () {
             }
         });
         new_door.paths = paths;
-        if (new_door.condition == 'Keyed') {
-            new_door.condition = 'Locked';
-            new_door.has_key = true;
-            new_door.key_char_id = state['DoorMaster'].doorCharID;
-            if (new_door.lock_passphrase == '') new_door.lock_passphrase = 'Open sesame';
-        }
 
         if (typeof new_door.open_id != 'undefined' && typeof new_door.closed_id != 'undefined') {
             new_door.id = generateUniqueID();
+            if (new_door.condition == 'Keyed' || typeof new_door.lock_id != 'undefined') {
+                new_door.condition = 'Locked';
+                new_door.has_key = true;
+                new_door.key_char_id = state['DoorMaster'].doorCharID;
+                if (new_door.lock_passphrase == '') new_door.lock_passphrase = 'Open sesame';
+            }
+
             if (new_door.switch_hidden) new_door.switch_hidden = {original: true, current: true};
             else new_door.switch_hidden = {original: false, current: false};
             if (new_door.lock_hidden) new_door.lock_hidden = {original: true, current: true};
@@ -238,7 +269,7 @@ var DoorMaster = DoorMaster || (function () {
                     if (token.get('type') == 'graphic') {
                         // Set basics
                         token.set({name: new_door.id, playersedit_name: false, showname: false, bar1_value: '', bar1_max: '', bar2_value: '', bar2_max: '', bar3_value: '', bar3_max: '', showplayers_bar1: false, showplayers_bar2: false, showplayers_bar3: false, showplayers_aura1: true, showplayers_aura2: false, playersedit_bar1: false, playersedit_bar2: false, playersedit_bar3: false, playersedit_aura1: false, playersedit_aura2: false});
-                        if (token.get('id') == new_door.open_id || token.get('id') == new_door.broken_id) token.set({layer: 'walls'});
+                        if (token.get('id') == new_door.open_id || token.get('id') == new_door.broken_id || token.get('id') == new_door.trap_id) token.set({layer: 'walls'});
                         if (typeof new_door.switch2_id != 'undefined' && token.get('id') == new_door.switch2_id) token.set({layer: 'walls'});
 
                         // Set auras & assign characters
@@ -276,6 +307,27 @@ var DoorMaster = DoorMaster || (function () {
         }
     },
 
+    getTriggers = function (str) {
+        var triggers = [];
+        _.each(str.split(','), function (tmp) {
+            tmp = tmp.trim().substr(0, 4).toLowerCase();
+            if (tmp == 'open') triggers.push('Open');
+            if (tmp == 'touc') triggers.push('Touch');
+            if (tmp == 'pick') triggers.push('Pick');
+            if (tmp == 'fail') triggers.push('Fail-Pick');
+            if (tmp == 'unlo') triggers.push('Unlock');
+        });
+        if (_.size(triggers) == 0) triggers = ['Open'];
+        return triggers;
+    },
+
+    triggeredTrap = function (door, action = ['Open']) {
+        if (door.trap && !door.trap['disabled']) {
+            if (_.size(_.intersection(action, door.trap['triggers'])) > 0) return true;
+            else return false;
+        } else return false;
+    },
+
     commandUseDoor = function (msg, action = 'open/close') {
         var parms = msg.content.replace('!door ', '').split(/\s+/i);
         var char_id = (parms[1]) ? parms[1] : null;
@@ -285,21 +337,29 @@ var DoorMaster = DoorMaster || (function () {
         if (_.size(msg.selected) == 1) {
             var token = getObj(msg.selected[0]._type, msg.selected[0]._id);
             if (token) {
-                var title = '', message = '', door = getDoorFromTokenID(token.get('id'));
+                var title = '', message = '', triggered = false, door = getDoorFromTokenID(token.get('id'));
                 if (door) {
-                    var show_dialog = true;
+                    var show_dialog = true, whispered = true;
                     var chars = getCharsFromPlayerID(msg.playerid);
+                    var char_name = _.size(chars) == 1 ? chars[0].get('name') : '';
+
+                    if (triggeredTrap(door, ['Touch'])) {
+                        executeTrap(msg, door, char_name);
+                        return;
+                    }
+
                     if (action == 'break' && door.condition != 'Barred' && door.condition != 'Broken') {
                         if (die_mod != null && adv_dis != null) {
                             // If skill and adv/dis have been sent, attempt to break the door down
                             var char = getObj('character', char_id);
-                            var roll_result = rollDice(die_mod, adv_dis);
-                            var roll_display = '<div style="' + styles.resultBox + '"><span style="' + styles.result + (roll_result.base == 1 ? 'color: red;' : (roll_result.base == 20 ? 'color: green;' : '')) + '" title="' + roll_result.formula + '">' + roll_result.final + '</span> ' + roll_result.skill + (roll_result.adv_dis == '-1' ? ' <span style="cursor: pointer;" title="Disadvantage">[Dis]</span> ' : (roll_result.adv_dis == '+1' ? ' <span style="cursor: pointer;" title="Advantage">[Adv]</span>' : '')) + '</div>';
+                            char_name = char.get('name');
+                            var roll_result = rollSkillCheck(die_mod, adv_dis);
+                            var roll_display = '<div style="' + styles.resultBox + '"><span style=\'' + styles.result + (roll_result.base == 1 ? 'color: red;' : (roll_result.base == 20 ? 'color: green;' : '')) + '\' title="' + roll_result.formula + '">' + roll_result.final + '</span> ' + roll_result.skill + (roll_result.adv_dis == '-1' ? ' <span style="cursor: pointer;" title="Disadvantage">[Dis]</span> ' : (roll_result.adv_dis == '+1' ? ' <span style="cursor: pointer;" title="Advantage">[Adv]</span>' : '')) + '</div>';
                             var gm_display = roll_display.replace('</div>', ' vs. DC ' + door.breakDC + '</div>');
 
                             if (roll_result.final >= door.breakDC) {
                                 title = 'Success!';
-                                message = char.get('name') + ' has successfully broken the ' + door.label['door'] + ' open';
+                                message = char_name + ' has successfully broken the ' + door.label['door'] + ' open';
 
                                 // Assess the damage...
                                 var break_chance = randomInteger(100) + ((roll_result.final - door.breakDC) * 2);
@@ -307,36 +367,38 @@ var DoorMaster = DoorMaster || (function () {
                                     door.condition = 'Broken';
                                     message += ', but has ruined it. The ' + door.label['door'] + ' will no longer close.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char.get('name') + ' has successfully broken through the ' + door.label['door'] + ' but destroyed it.<br>' + gm_display, 'GM');
+                                    showDialog('', char_name + ' has successfully broken through the ' + door.label['door'] + ' but destroyed it.<br>' + gm_display, 'GM');
                                 } else if (break_chance >= 70 && door.condition == 'Locked') {
                                     door.condition = 'Disabled';
                                     message += ', but has damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char.get('name') + ' has successfully broken through the ' + door.label['door'] + ' but damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.<br>' + gm_display, 'GM');
+                                    showDialog('', char_name + ' has successfully broken through the ' + door.label['door'] + ' but damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.<br>' + gm_display, 'GM');
                                 } else {
                                     door.condition = 'Unlocked';
                                     message += '.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char.get('name') + ' has successfully broken the ' + door.label['door'] + ' open.<br>' + gm_display, 'GM');
+                                    showDialog('', char_name + ' has successfully broken the ' + door.label['door'] + ' open.<br>' + gm_display, 'GM');
                                 }
                                 if (door.condition == 'Broken') breakDoor(door);
                                 else toggleDoorOpen(door);
+                                triggered = (door.open && triggeredTrap(door, ['Open']));
                             } else {
                                 title = 'Fail!';
-                                message = char.get('name') + ' has not succeeded in breaking through the ' + door.label['door'] + '.';
+                                message = char_name + ' has not succeeded in breaking through the ' + door.label['door'] + '.';
                                 if (door.condition == 'Unlocked') message += ' However, you could just try opening it...';
                                 if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                showDialog('', char.get('name') + ' has not succeeded in breaking through the ' + door.label['door'] + '.<br>' + gm_display, 'GM');
+                                showDialog('', char_name + ' has not succeeded in breaking through the ' + door.label['door'] + '.<br>' + gm_display, 'GM');
                             }
                         } else if (char_id || _.size(chars) == 1) {
                             // If one (or selected) character, give action for attempt to break
-                            title = '';
+                            title = '', whispered = true;
                             char_id = (!char_id) ? chars[0].get('id') : char_id;
                             var char = (!char_id) ? chars[0].get('id') : getObj('character', char_id);
-                            message = '<div style="' + styles.buttonWrapper + '">' + char.get('name') + ': <a style="' + styles.button + '" href="!door break ' + char_id + ' ?{Select skill' + getSkills(char_id, 'STR') + '} ?{Advantage or Disadvantage|Neither,0|Advantage,+1|Disadvantage,-1}" title="' + char.get('name') + ' will attempt to break the ' + door.label['door'] + ' open.">Break Open</a></div>';
+                            char_name = char.get('name');
+                            message = '<div style="' + styles.buttonWrapper + '">' + char_name + ': <a style="' + styles.button + '" href="!door break ' + char_id + ' ?{Select skill' + getSkills(char_id, 'STR') + '} ?{Advantage or Disadvantage|Neither,0|Advantage,+1|Disadvantage,-1}" title="' + char_name + ' will attempt to break the ' + door.label['door'] + ' open.">Break Open</a></div>';
                         } else {
                             // If more than one character, make character selection
-                            title = '';
+                            title = '', whispered = true;
                             message = '<div style="' + styles.buttonWrapper + '"><a style="' + styles.button + '" href="!door break ?{Select character';
                             _.each(chars, function (char) {
                                 message += '|' + char.get('name') + ',' + char.get('id');
@@ -358,12 +420,16 @@ var DoorMaster = DoorMaster || (function () {
                                 }
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
                                     message = 'This door has a ' + door.label['switch'] + ' that must be used.';
+                                    whispered = true;
                                 } else if (token.get('id') == door.lock_id && action == 'pick') {
                                     message = 'This door is already unlocked and cannot be operated from here.';
+                                    whispered = true;
                                 } else {
                                     toggleDoorOpen(door);
+                                    triggered = (action == 'open/close' && door.open && triggeredTrap(door, ['Open']));
                                     if (action == 'pick') {
                                         message = 'Um... This ' + door.label['door'] + ' was already unlocked.';
+                                        whispered = true;
                                     } else show_dialog = false;
                                 }
                                 break;
@@ -372,7 +438,7 @@ var DoorMaster = DoorMaster || (function () {
                                 message = typeof door.lock_id == 'undefined' ? 'You cannot open the ' + door.label['door'] + ' without a key... or try another method.' : '... yet there is no lock visible on the ' + door.label['door'] + '.';
 
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
-                                    title = '';
+                                    title = '', whispered = true;
                                     message = 'This ' + door.label['door'] + ' has a ' + door.label['switch'] + ' that must be used.';
                                     break;
                                 }
@@ -391,37 +457,42 @@ var DoorMaster = DoorMaster || (function () {
                                     if (die_mod != null && adv_dis != null) {
                                         // If skill and adv/dis have been sent, attempt to pick the lock
                                         var char = getObj('character', char_id);
-                                        var roll_result = rollDice(die_mod, adv_dis);
-                                        var roll_display = '<div style="' + styles.resultBox + '"><span style="' + styles.result + (roll_result.base == 1 ? 'color: red;' : (roll_result.base == 20 ? 'color: green;' : '')) + '" title="' + roll_result.formula + '">' + roll_result.final + '</span> ' + roll_result.skill + ' ' + (roll_result.adv_dis == '-1' ? '<span style="cursor: pointer;" title="Disadvantage">[Dis]</span>' : (roll_result.adv_dis == '+1' ? '<span style="cursor: pointer;" title="Advantage">[Adv]</span>' : '')) + '</div>';
-                                        var gm_display = roll_display.replace('</div>', 'vs. DC ' + door.breakDC + '</div>');
+                                        char_name = char.get('name');
+                                        var roll_result = rollSkillCheck(die_mod, adv_dis);
+                                        var roll_display = '<div style="' + styles.resultBox + '"><span style=\'' + styles.result + (roll_result.base == 1 ? 'color: red;' : (roll_result.base == 20 ? 'color: green;' : '')) + '\' title="' + roll_result.formula + '">' + roll_result.final + '</span> ' + roll_result.skill + (roll_result.adv_dis == '-1' ? ' <span style="cursor: pointer;" title="Disadvantage">[Dis]</span>' : (roll_result.adv_dis == '+1' ? ' <span style="cursor: pointer;" title="Advantage">[Adv]</span>' : '')) + '</div>';
+                                        var gm_display = roll_display.replace('</div>', ' vs. DC ' + door.breakDC + '</div>');
 
                                         if (roll_result.final >= door.lockDC) {
                                             title = 'Success!';
-                                            message = char.get('name') + ' has successfully picked the lock...';
+                                            message = char_name + ' has successfully picked the lock...';
                                             if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
                                             door.condition = 'Unlocked';
-                                            showDialog('', char.get('name') + ' has successfully picked the lock.<br>' + gm_display, 'GM');
+                                            showDialog('', char_name + ' has successfully picked the lock.<br>' + gm_display, 'GM');
+                                            triggered = triggeredTrap(door, ['Pick', 'Unlock']);
                                         } else if (roll_result.base == 1 && state['DoorMaster'].allowFumbles) {
                                             title = 'Fumble!';
-                                            message =  char.get('name') + ' has broken the lock. No more attempts to pick it will succeed.';
+                                            message =  char_name + ' has broken the lock. No more attempts to pick it will succeed.';
                                             if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
                                             door.condition = 'Disabled';
-                                            showDialog('', char.get('name') + ' has fumbled while picking the lock.<br>' + gm_display, 'GM');
+                                            showDialog('', char_name + ' has fumbled while picking the lock.<br>' + gm_display, 'GM');
+                                            triggered = triggeredTrap(door, ['Fail-Pick']);
                                         } else {
                                             title = 'Fail!';
-                                            message =  char.get('name') + ' has not succeeded in picking this lock.';
+                                            message =  char_name + ' has not succeeded in picking this lock.';
                                             if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                            showDialog('', char.get('name') + ' has not succeeded in picking the lock.<br>' + gm_display, 'GM');
+                                            showDialog('', char_name + ' has not succeeded in picking the lock.<br>' + gm_display, 'GM');
+                                            triggered = triggeredTrap(door, ['Fail-Pick']);
                                         }
                                     } else if (char_id != null || _.size(chars) == 1) {
                                         // If one (or selected) character, give action for attempt to pick
                                         char_id = (!char_id) ? chars[0].get('id') : char_id;
                                         var char = (!char_id) ? chars[0] : getObj('character', char_id);
-                                        title = '';
-                                        message = '<div style="' + styles.buttonWrapper + '">' + char.get('name') + ': <a style="' + styles.button + '" href="!door pick ' + char_id + ' ?{Select skill' + getSkills(char_id, 'DEX') + '} ?{Advantage or Disadvantage|Neither,0|Advantage,+1|Disadvantage,-1}" title="' + char.get('name') + ' will attempt to pick the lock.">Pick Lock</a></div>';
+                                        char_name = char.get('name');
+                                        title = '', whispered = true;
+                                        message = '<div style="' + styles.buttonWrapper + '">' + char_name + ': <a style="' + styles.button + '" href="!door pick ' + char_id + ' ?{Select skill' + getSkills(char_id, 'DEX') + '} ?{Advantage or Disadvantage|Neither,0|Advantage,+1|Disadvantage,-1}" title="' + char_name + ' will attempt to pick the lock.">Pick Lock</a></div>';
                                     } else {
                                         // If more than one character, make character selection
-                                        title = '';
+                                        title = '', whispered = true;
                                         message = '<div style="' + styles.buttonWrapper + '"><a style="' + styles.button + '" href="!door pick ?{Select character';
                                         _.each(chars, function (char) {
                                             message += '|' + char.get('name') + ',' + char.get('id');
@@ -432,7 +503,7 @@ var DoorMaster = DoorMaster || (function () {
                                 break;
                             case 'Disabled':
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
-                                    title = '';
+                                    title = '', whispered = true;
                                     message = 'This ' + door.label['door'] + ' has a ' + door.label['switch'] + ' that must be used.';
                                     break;
                                 }
@@ -470,7 +541,7 @@ var DoorMaster = DoorMaster || (function () {
                                     message = 'The ' + door.label['switch'] + ' begins to move but cannot.';
                                 }
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
-                                    title = '';
+                                    title = '', whispered = true;
                                     message = 'This ' + door.label['door'] + ' has a ' + door.label['switch'] + ' that must be used.';
                                 }
                                 break;
@@ -485,7 +556,8 @@ var DoorMaster = DoorMaster || (function () {
                         }
                     }
 
-                    if (show_dialog) showDialog(title, message, msg.who);
+                    if (show_dialog) showDialog(title, message, (whispered ? msg.who : ''));
+                    if (triggered) executeTrap(msg, door, char_name);
 
                 } else showDialog('Door Use Error', 'Invalid ID.', msg.who);
             } else showDialog('Door Use Error', 'Invalid token.', msg.who);
@@ -592,7 +664,7 @@ var DoorMaster = DoorMaster || (function () {
     },
 
     // Places all door elements back on the objects layer and deletes the door object
-    commandDestroyDoor = function (msg) {
+    commandDestroyDoor = function (msg, silent = false) {
         var door, parms = msg.content.split(/\s+/i);
         if (parms[2] && parms[2] != '') {
             door = _.find(state['DoorMaster'].doors, function (x) { return x.id == parms[2]; });
@@ -611,7 +683,7 @@ var DoorMaster = DoorMaster || (function () {
             var closed_token = getObj('graphic', door.closed_id);
             if (closed_token) closed_token.set({layer: 'objects', name: 'Closed', represents: '', aura1_radius: '', aura2_radius: '', bar1_value: (door.has_key ? 'Keyed' : door.condition), bar1_max: (door.visibility != 'Visible' ? door.visibility : ''), bar2_value: door.lockDC, bar2_max: door.breakDC, bar3_value: (door.lock_passphrase ? door.lock_passphrase : ''), bar3_max: ''});
             var open_token = getObj('graphic', door.open_id);
-            if (open_token) open_token.set({layer: 'objects', name: 'Open', represents: '', aura1_radius: '', aura2_radius: ''});
+            if (open_token) open_token.set({layer: 'objects', name: 'Open', bar1_value: (door.trap ? door.trap['triggers'].join(',') : ''), bar2_value: (door.trap ? door.trap['disableDC'] : ''), represents: '', aura1_radius: '', aura2_radius: ''});
             var switch_token = getObj('graphic', door.switch_id);
             if (switch_token) switch_token.set({layer: 'objects', name: 'Switch', represents: '', bar1_value: (door.switch_hidden['original'] ? 'Hidden' : ''), aura1_radius: '', aura2_radius: ''});
             var switch2_token = getObj('graphic', door.switch2_id);
@@ -620,6 +692,8 @@ var DoorMaster = DoorMaster || (function () {
             if (broken_token) broken_token.set({layer: 'objects', name: 'Broken'});
             var lock_token = getObj('graphic', door.lock_id);
             if (lock_token) lock_token.set({name: 'Lock', represents: '', bar1_value: (door.lock_hidden['original'] ? 'Hidden' : ''), aura1_radius: '', aura2_radius: ''});
+            var trap_token = getObj('graphic', door.trap_id);
+            if (trap_token) trap_token.set({layer: 'objects', name: 'Trap'});
             _.each(door.paths, function (path_id) {
                 var path = getObj('path', path_id);
                 if (path) path.set({layer: 'objects'});
@@ -631,10 +705,35 @@ var DoorMaster = DoorMaster || (function () {
             if (typeof door.switch2_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.switch2_id; });
             if (typeof door.broken_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.broken_id; });
             if (typeof door.lock_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.lock_id; });
+            if (typeof door.trap_id != 'undefined') state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.trap_id; });
 
             state['DoorMaster'].doors = _.reject(state['DoorMaster'].doors, function (x) { return x.id == door.id; });
-            showDialog('Destruction Complete', 'The door tokens have all been unlocked and all pieces returned to the token layer.', 'GM');
+            if (!silent) showDialog('Destruction Complete', 'The door tokens have all been unlocked and all pieces returned to the token layer.', 'GM');
         } else showDialog('Destruction Error', (_.size(msg.selected) != 1 ? 'Too many tokens selected.' : 'Invalid ID.'), 'GM');
+    },
+
+    // Removes doors from state that have lost tokens
+    purgeOldDoors = function (msg) {
+        var door, parms = msg.content.split(/\s+/i);
+        if (parms[2] && parms[2].toLowerCase() == 'confirm') {
+            var count = 0, doors = state['DoorMaster'].doors;
+            _.each(doors, function (door) {
+                var closed = getObj('graphic', door.closed_id);
+                var open = getObj('graphic', door.open_id);
+                var switch1 = (typeof door.switch_id != 'undefined') ? getObj('graphic', door.switch_id) : {};
+                var switch2 = (typeof door.switch2_id != 'undefined') ? getObj('graphic', door.switch2_id) : {};
+                var broken = (typeof door.broken_id != 'undefined') ? getObj('graphic', door.broken_id) : {};
+                var lock = (typeof door.lock_id != 'undefined') ? getObj('graphic', door.lock_id) : {};
+                var trap = (typeof door.trap_id != 'undefined') ? getObj('graphic', door.trap_id) : {};
+                if (!closed || !open || !switch1 || !switch2 || !broken || !lock || !trap) {
+                    commandDestroyDoor({content: '!door destroy ' + door.id}, true);
+                    count++;
+                }
+            });
+            showDialog('Purge Complete', (count == 1 ? '1 door' : count + ' doors') + ' have been purged.', 'GM');
+        } else {
+            showDialog('Purge Doors', 'This function <b>destroys all doors</b> that have missing tokens (missing paths are ignored). If you wish to proceed, click the button below.<div style=\'' + styles.buttonWrapper + '\'><a style=\'' + styles.button + '\' href="!door purge confirm">PURGE</a></div>', 'GM');
+        }
     },
 
     // Links selected doors to the indicated Master door
@@ -693,17 +792,22 @@ var DoorMaster = DoorMaster || (function () {
         var aura_settings = {aura2_radius: '', aura1_radius: '0.1', aura1_color: state['DoorMaster'].doorAuraColor, aura1_square: false};
         var hidden_aura_settings = {aura1_radius: '', aura2_radius: '0.1', aura2_color: state['DoorMaster'].hiddenAuraColor, aura2_square: false};
         door.key_char_id = reset ? state['DoorMaster'].doorCharID : state['DoorMaster'].doorKeyedCharID;
+        var char_id;
+        if (typeof door.trap != 'undefined') {
+            char_id = !door.trap['hidden'] ? (reset ? state['DoorMaster'].trapCharID : state['DoorMaster'].trapKeyedCharID) : door.key_char_id;
+        } else char_id = door.key_char_id;
+
         if (typeof door.lock_id == 'undefined') {
             var open_token = getObj('graphic', door.open_id);
             var closed_token = getObj('graphic', door.closed_id);
             if (reset) {
-                open_token.set({represents: door.key_char_id});
+                open_token.set({represents: char_id});
                 if (door.hidden) open_token.set(hidden_aura_settings);
-                closed_token.set({represents: door.key_char_id});
+                closed_token.set({represents: char_id});
                 if (door.hidden) closed_token.set(hidden_aura_settings);
             } else {
-                open_token.set({represents: door.key_char_id});
-                closed_token.set({represents: door.key_char_id});
+                open_token.set({represents: char_id});
+                closed_token.set({represents: char_id});
                 if (state['DoorMaster'].useAura) open_token.set(aura_settings);
                 if (state['DoorMaster'].useAura) closed_token.set(aura_settings);
             }
@@ -723,6 +827,12 @@ var DoorMaster = DoorMaster || (function () {
                         return;
                     }
 
+                    if (token.get('id') != door.lock_id && triggeredTrap(door, ['Touch'])) {
+                        executeTrap(msg, door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
+                        return;
+                    }
+
+                    var chars = getCharsFromPlayerID(msg.playerid);
                     if (passphrase == door.lock_passphrase) {
                         switch (door.condition) {
                             case 'Locked':
@@ -732,6 +842,7 @@ var DoorMaster = DoorMaster || (function () {
                                     else enableLock(door, true);
                                 }
                                 showDialog('Key Used', 'Success! The door is now unlocked.', msg.who);
+                                if (triggeredTrap(door, ['Unlock'])) executeTrap(msg, door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
                                 break;
                             case 'Unlocked':
                                 if (door.open) toggleDoorOpen(door);
@@ -751,6 +862,128 @@ var DoorMaster = DoorMaster || (function () {
         } else {
             showDialog('Key Use Error', 'You must select a door or lock token.', msg.who);
         }
+    },
+
+    executeTrap = function (msg, door, char_name = '') {
+        var victim = (char_name != '') ? char_name : 'Victim';
+        if (door.trap['effect'] != '') {
+            var diceExp, effect = _.clone(door.trap['effect']);
+            effect = effect.replace(/\[WHO\]/g, victim);
+            if (door.trap['effect'].startsWith('&{template')) sendChat('DoorMaster', effect);
+            else {
+                // Check for die roll expressions
+                while (effect.search('@') != -1) {
+                    diceExp = effect.replace(/.*\@(.+)\@.*/i, '$1');
+                    effect = effect.replace('@' + diceExp + '@', '<span style=\'' + styles.result + '\' title="' + diceExp + '">' + rollDice(diceExp) + '</span>');
+                }
+                showDialog('It\'s a Trap!', effect);
+            }
+        } else {
+            showDialog('It\'s a Trap!', victim + ', your action triggered a trap!');
+            showDialog('Trap Effect Needed', 'There is no effect stored, so you must deliver the trap\'s effect manually.', 'GM');
+        }
+
+        if (door.trap['break_door']) breakDoor(door);
+        if (door.trap['disable_after_trigger']) door.trap['disabled'] = true;
+        if (typeof door.trap_id != 'undefined') {
+            var trap_token = getObj('graphic', door.trap_id);
+            trap_token.set({layer: 'objects'});
+        }
+    },
+
+    commandDisableTrap = function (msg) {
+        var parms = msg.content.replace('!door ', '').split(/\s+/i);
+        var char_id = (parms[1]) ? parms[1] : null;
+        var die_mod = (parms[2]) ? parms[2] : null;
+        var adv_dis = (parms[3]) ? parms[3] : null;
+
+        if (_.size(msg.selected) == 1) {
+            var token = getObj(msg.selected[0]._type, msg.selected[0]._id);
+            if (token) {
+                var title = '', message = '', triggered = false, door = getDoorFromTokenID(token.get('id'));
+                if (door) {
+                    var show_dialog = true, whispered = true;
+                    var chars = getCharsFromPlayerID(msg.playerid);
+                    var char_name = _.size(chars) == 1 ? chars[0].get('name') : '';
+
+                    if (triggeredTrap(door, ['Touch'])) {
+                        executeTrap(msg, door, char_name);
+                        return;
+                    }
+
+                    if (die_mod != null && adv_dis != null) {
+                        // If skill and adv/dis have been sent, attempt to disable the trap
+                        var char = getObj('character', char_id);
+                        char_name = char.get('name');
+                        var roll_result = rollSkillCheck(die_mod, adv_dis);
+                        var roll_display = '<div style="' + styles.resultBox + '"><span style=\'' + styles.result + (roll_result.base == 1 ? 'color: red;' : (roll_result.base == 20 ? 'color: green;' : '')) + '\' title="' + roll_result.formula + '">' + roll_result.final + '</span> ' + roll_result.skill + (roll_result.adv_dis == '-1' ? ' <span style="cursor: pointer;" title="Disadvantage">[Dis]</span>' : (roll_result.adv_dis == '+1' ? ' <span style="cursor: pointer;" title="Advantage">[Adv]</span>' : '')) + '</div>';
+                        var gm_display = roll_display.replace('</div>', ' vs. DC ' + door.breakDC + '</div>');
+
+                        if (roll_result.final >= door.trap['disableDC']) {
+                            title = 'Success!';
+                            message = char_name + ' has successfully disabled the trap...';
+                            if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
+                            door.trap['disabled'] = true;
+                            showDialog('', char_name + ' has successfully disabled the trap.<br>' + gm_display, 'GM');
+
+                            // Remove "Disable" button from door tokens
+                            revealDisableTrap(door, true);
+                        } else if (roll_result.base == 1 && state['DoorMaster'].trapFumbles) {
+                            title = 'Fumble!';
+                            message =  char_name + ' has triggered the trap!';
+                            if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
+                            showDialog('', char_name + ' has fumbled while disabling the trap.<br>' + gm_display, 'GM');
+                        } else {
+                            title = 'Fail!';
+                            message =  char_name + ' has not succeeded in disabling the trap.';
+                            if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
+                            showDialog('', char_name + ' has not succeeded in disabling the trap.<br>' + gm_display, 'GM');
+                        }
+                    } else if (char_id != null || _.size(chars) == 1) {
+                        // If one (or selected) character, give action for attempt to disable
+                        char_id = (!char_id) ? chars[0].get('id') : char_id;
+                        var char = (!char_id) ? chars[0] : getObj('character', char_id);
+                        char_name = char.get('name');
+                        title = '', whispered = true;
+                        message = '<div style="' + styles.buttonWrapper + '">' + char_name + ': <a style="' + styles.button + '" href="!door disable-trap ' + char_id + ' ?{Select skill' + getSkills(char_id, 'DEX') + '} ?{Advantage or Disadvantage|Neither,0|Advantage,+1|Disadvantage,-1}" title="' + char_name + ' will attempt to disable the trap.">Disable Trap</a></div>';
+                    } else {
+                        // If more than one character, make character selection
+                        title = '', whispered = true;
+                        message = '<div style="' + styles.buttonWrapper + '"><a style="' + styles.button + '" href="!door disable-trap ?{Select character';
+                        _.each(chars, function (char) {
+                            message += '|' + char.get('name') + ',' + char.get('id');
+                        });
+                        message += '}" title="Select which character is attempting to disable the trap.">Choose Character</a></div>';
+                    }
+                    if (show_dialog) showDialog(title, message, (whispered ? msg.who : ''));
+
+                } else showDialog('Disable Trap Error', 'Invalid ID.', msg.who);
+            } else showDialog('Disable Trap Error', 'Invalid token.', msg.who);
+        } else showDialog('Disable Trap Error', 'You must select a valid token.', msg.who);
+    },
+
+    revealDisableTrap = function (door, reset = false) {
+        var trap_char_id;
+        var open_token = getObj('graphic', door.open_id);
+        var closed_token = getObj('graphic', door.closed_id);
+        if (!reset) {
+            trap_char_id = (door.has_key ? (door.key_char_id == state['DoorMaster'].doorKeyedCharID ? state['DoorMaster'].trapKeyedCharID : state['DoorMaster'].trapCharID) : state['DoorMaster'].trapCharID);
+            door.trap['hidden'] = false;
+        } else {
+            trap_char_id = (door.has_key ? door.key_char_id : state['DoorMaster'].doorCharID);
+            door.trap['hidden'] = true;
+        }
+        closed_token.set({represents: trap_char_id});
+        open_token.set({represents: trap_char_id});
+    },
+
+    rollDice = function (exp) {
+        exp = exp.split(/\D/gi);
+        var roll, num = (exp[0]) ? parseInt(exp[0]) : 1,
+        die = (exp[1]) ? parseInt(exp[1]) : 6,
+        plus = (exp[2]) ? parseInt(exp[2]) : 0;
+        roll = (num == 1) ? randomInteger(die) : randomInteger(die * num - (num - 1)) + (num - 1);
+        return roll + plus;
     },
 
     commandDoorStatus = function (msg, alert = '') {
@@ -797,6 +1030,12 @@ var DoorMaster = DoorMaster || (function () {
                         alert = 'Break DC has been updated.';
                     }
                     break;
+                case '--disable-dc':
+                    if (actions[1] && actions[1] != '' && isNum(actions[1])) {
+                        door.trap['disableDC'] = parseInt(actions[1]);
+                        alert = 'Disable DC has been updated.';
+                    }
+                    break;
                 case '--reveal-door':
                     revealDoor(door);
                     alert = initCap(door.label['door']) + ' has been revealed.';
@@ -804,6 +1043,15 @@ var DoorMaster = DoorMaster || (function () {
                 case '--reveal-switch':
                     revealSwitch(door);
                     alert = initCap(door.label['switch']) + ' has been revealed.';
+                    break;
+                case '--reveal-trap':
+                    if (door.trap['hidden']) {
+                        revealDisableTrap(door);
+                        alert = 'Disable Trap button has been revealed.';
+                    } else {
+                        revealDisableTrap(door, true);
+                        alert = 'Disable Trap button is now hidden.';
+                    }
                     break;
                 case '--keyhole':
                     enableKey(door);
@@ -830,6 +1078,18 @@ var DoorMaster = DoorMaster || (function () {
                     door.key_reset = !door.key_reset;
                     alert = 'Key reset has been updated.';
                     break;
+                case '--toggle-trap':
+                    door.trap['disabled'] = !door.trap['disabled'];
+                    alert = 'Trap status has been updated.';
+                    break;
+                case '--toggle-trap-reset':
+                    door.trap['disable_after_trigger'] = !door.trap['disable_after_trigger'];
+                    alert = 'Trap auto reset has been updated.';
+                    break;
+                case '--toggle-trap-break':
+                    door.trap['break_door'] = !door.trap['break_door'];
+                    alert = 'Trap will' + (door.trap['break_door'] ? ' now' : ' no longer') + ' break the door.';
+                    break;
                 case '--label-door':
                     door.label['door'] = actions[1].toLowerCase().trim();
                     alert = 'Door label has been updated.';
@@ -851,8 +1111,12 @@ var DoorMaster = DoorMaster || (function () {
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
             message += '<b>Break DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --break-dc|?{Break DC|' + door.breakDC + '}" title="Change break DC">' + door.breakDC + '</a><br>';
 
+            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal ' + door.label['switch'] + ' to players">Hidden</a>' : 'Visible')) + '<br>';
+            if (typeof door.switch_id != 'undefined') message += '<b>Switch Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-switch|?{Label|' + door.label['switch'] + '}" title="Change switch label">' + door.label['switch'] + '</a></p>';
+
+            // Keyed doors
             if (door.has_key) {
-                message += '<hr style="margin: 4px 12px;">';
+                message += '<hr style="margin: 4px 12px;"><p>';
                 if (typeof door.lock_id != 'undefined') {
                     message += '<b>External Lock:</b> ' + (door.lock_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --show-lock" title="Allow players to use lock">Enable Lock</a>' : 'Lock enabled') + '<br>';
                 } else {
@@ -860,19 +1124,33 @@ var DoorMaster = DoorMaster || (function () {
                 }
                 message += '<b>Key Reset:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-key-reset" title="Turn key reset ' + (door.key_reset ? 'OFF' : 'ON') + '">' + (door.key_reset ? 'ON' : 'OFF') + '</a><br>';
                 message += '<b>Passphrase:</b> <i>' + door.lock_passphrase + '</i> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door status ' + door.id + ' --passphrase|?{Passphrase|' + door.lock_passphrase + '}" title="Change lock passphrase">&Delta;</a><br>';
-                message += '<hr style="margin: 4px 12px;">';
+                message += '</p><hr style="margin: 4px 12px;">';
             }
 
-            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal ' + door.label['switch'] + ' to players">Hidden</a>' : 'Visible')) + '<br>';
-            if (typeof door.switch_id != 'undefined') message += '<b>Switch Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-switch|?{Label|' + door.label['switch'] + '}" title="Change switch label">' + door.label['switch'] + '</a><br>';
+            // Trapped doors
+            if (typeof door.trap != 'undefined') {
+                var effect = _.clone(door.trap['effect']);
+                message += (door.has_key ? '' : '<hr style="margin: 4px 12px;">') + '<p>';
+                message += '<b>Trap:</b> ' + (door.trap['disabled'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-trap" title="Activate the trap">Disabled</a>' : '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-trap" title="Disable the trap">Activated</a>') + '<br>';
+                message += '<b>Disable DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --disable-dc|?{Disable DC|' + door.trap['disableDC'] + '}" title="Change disable DC">' + door.trap['disableDC'] + '</a><br>';
 
-            message += '<b>Tokens locked?</b> ' + (door.tokens_locked ? 'Yes' : '<span style="color: #C91010;">No</span> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --token-lock" title="Lock all associated tokens">lock</a>') + '</p>';
+                var reveal = door.trap['disabled'] ? 'Hidden' : (door.trap['hidden'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-trap" title="Reveal Disable button to players">Hidden</a>' : '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-trap" title="Remove Disable button door">Available</a>');
 
+                message += '<b>Disable Button:</b> ' + reveal + '<br>';
+
+                message += '<b>Triggers:</b> ' + door.trap['triggers'].join(', ') + '<br>';
+                message += '<b>Auto Reset:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-trap-reset" title="Turn trap auto reset ' + (door.trap['disable_after_trigger'] ? 'ON' : 'OFF') + '">' + (door.trap['disable_after_trigger'] ? 'OFF' : 'ON') + '</a><br>';
+                message += '<b>Break Door:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-trap-break" title="Turn ' + (door.trap['break_door'] ? 'OFF' : 'ON') + ' breaking the door when triggered">' + (door.trap['break_door'] ? 'ON' : 'OFF') + '</a><br>';
+                effect = (effect.startsWith('&{template') ? effect.replace(/\{/g, '&#123;').replace(/\}/g, '&#125;') : effect.replace(/<[^>]+>/gi, ''));
+                message += '<b>Effect:</b><br>' + (effect.search('&#123;template') != -1 ? '<i>' : '') + effect.substr(0, 145) + (effect.search('&#123;template') != -1 ? '</i>' : '') + (effect.length > 120 ? '&hellip;' : '') + '<br>';
+                message += '</p><hr style="margin: 4px 12px;">';
+            }
+
+            message += '<p><b>Tokens locked?</b> ' + (door.tokens_locked ? 'Yes' : '<span style="color: #C91010;">No</span> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --token-lock" title="Lock all associated tokens">lock</a>') + '</p>';
             message += '<p><b>Linked Doors:</b> ' + (typeof door.linked != 'undefined' ? _.size(door.linked) : 'none') + ' <a style=\'' + styles.textButton + '\' href="!door link ' + door.id + '" title="Link selected door(s)">link</a><br>';
-            if (typeof door.linked != 'undefined') message += '<b>All-or-nothing?</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-aon" title="Turn all-or-nothing ' + (door.all_or_nothing ? 'OFF' : 'ON') + '">' + (door.all_or_nothing ? 'ON' : 'OFF') + '</a>';
+            if (typeof door.linked != 'undefined') message += '<b>All-or-nothing?</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-aon" title="Turn all-or-nothing ' + (door.all_or_nothing ? 'OFF' : 'ON') + '">' + (door.all_or_nothing ? 'ON' : 'OFF') + '</a></p>';
 
-            message += '</p>';
-            showDialog((door.open ? 'Open ' + initCap(door.label['door']) : 'Closed ' + initCap(door.label['door'])), message, 'GM');
+            showDialog((door.open ? 'Open ' : 'Closed ') + initCap(door.label['door']), message, 'GM');
         } else showDialog('Door Status Error', 'Invalid ID.', 'GM');
     },
 
@@ -883,6 +1161,7 @@ var DoorMaster = DoorMaster || (function () {
         if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.switch2_id == token_id; });
         if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.broken_id == token_id; });
         if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.lock_id == token_id; });
+        if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.trap_id == token_id; });
         return door;
     },
 
@@ -934,6 +1213,7 @@ var DoorMaster = DoorMaster || (function () {
 
     // Create Door Characters
     createDoorChars = function (msg) {
+        var retval = false;
         if (!doorCharExists()) {
             var char = createObj("character", {name: 'DoorMaster', controlledby: 'all'});
             var char_id = char.get('id');
@@ -945,44 +1225,80 @@ var DoorMaster = DoorMaster || (function () {
             createObj("ability", { name: 'Help', characterid: char_id, action: '!door help', istokenaction: true });
 
             state['DoorMaster'].doorCharID = char_id;
+            retval = true;
         }
 
         if (!doorKeyedCharExists()) {
-            var kchar = createObj("character", {name: 'DoorMaster Keyed', controlledby: 'all'});
-            var kchar_id = kchar.get('id');
-            kchar.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+            var char = createObj("character", {name: 'DoorMaster Keyed', controlledby: 'all'});
+            var char_id = char.get('id');
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
 
-            createObj("ability", { name: 'Use', characterid: kchar_id, action: '!door use', istokenaction: true });
-            createObj("ability", { name: 'Key', characterid: kchar_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
-            createObj("ability", { name: 'Pick', characterid: kchar_id, action: '!door pick', istokenaction: true });
-            createObj("ability", { name: 'Break', characterid: kchar_id, action: '!door break', istokenaction: true });
-            createObj("ability", { name: 'Help', characterid: kchar_id, action: '!door help', istokenaction: true });
+            createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
+            createObj("ability", { name: 'Key', characterid: char_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
+            createObj("ability", { name: 'Pick', characterid: char_id, action: '!door pick', istokenaction: true });
+            createObj("ability", { name: 'Break', characterid: char_id, action: '!door break', istokenaction: true });
+            createObj("ability", { name: 'Help', characterid: char_id, action: '!door help', istokenaction: true });
 
-            state['DoorMaster'].doorKeyedCharID = kchar_id;
+            state['DoorMaster'].doorKeyedCharID = char_id;
+            retval = true;
         }
 
         if (!switchCharExists()) {
-            var schar = createObj("character", {name: 'DoorMaster Switch', controlledby: 'all'});
-            var schar_id = schar.get('id');
-            schar.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+            var char = createObj("character", {name: 'DoorMaster Switch', controlledby: 'all'});
+            var char_id = char.get('id');
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
 
-            createObj("ability", { name: 'Use', characterid: schar_id, action: '!door use', istokenaction: true });
-            createObj("ability", { name: 'Help', characterid: schar_id, action: '!door help', istokenaction: true });
+            createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
+            createObj("ability", { name: 'Help', characterid: char_id, action: '!door help', istokenaction: true });
 
-            state['DoorMaster'].doorKeyedCharID = kchar_id;
+            state['DoorMaster'].switchCharID = char_id;
+            retval = true;
         }
 
         if (!lockCharExists()) {
-            var lchar = createObj("character", {name: 'DoorMaster Lock', controlledby: 'all'});
-            var lchar_id = lchar.get('id');
-            lchar.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+            var char = createObj("character", {name: 'DoorMaster Lock', controlledby: 'all'});
+            var char_id = char.get('id');
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
 
-            createObj("ability", { name: 'Key', characterid: lchar_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
+            createObj("ability", { name: 'Key', characterid: char_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
             createObj("ability", { name: 'Pick', characterid: char_id, action: '!door pick', istokenaction: true });
-            createObj("ability", { name: 'Help', characterid: lchar_id, action: '!door help', istokenaction: true });
+            createObj("ability", { name: 'Help', characterid: char_id, action: '!door help', istokenaction: true });
 
-            state['DoorMaster'].doorKeyedCharID = kchar_id;
+            state['DoorMaster'].lockCharID = char_id;
+            retval = true;
         }
+
+        if (!trapCharExists()) {
+            var char = createObj("character", {name: 'DoorMaster Trapped', controlledby: 'all'});
+            var char_id = char.get('id');
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+
+            createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
+            createObj("ability", { name: 'Pick', characterid: char_id, action: '!door pick', istokenaction: true });
+            createObj("ability", { name: 'Break', characterid: char_id, action: '!door break', istokenaction: true });
+            createObj("ability", { name: 'Disable', characterid: char_id, action: '!door disable-trap', istokenaction: true });
+            createObj("ability", { name: 'Help', characterid: char_id, action: '!door help', istokenaction: true });
+
+            state['DoorMaster'].trapCharID = char_id;
+            retval = true;
+        }
+
+        if (!trapKeyedCharExists()) {
+            var char = createObj("character", {name: 'DoorMaster Trapped Keyed', controlledby: 'all'});
+            var char_id = char.get('id');
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+
+            createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
+            createObj("ability", { name: 'Key', characterid: char_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
+            createObj("ability", { name: 'Pick', characterid: char_id, action: '!door pick', istokenaction: true });
+            createObj("ability", { name: 'Break', characterid: char_id, action: '!door break', istokenaction: true });
+            createObj("ability", { name: 'Disable', characterid: char_id, action: '!door disable-trap', istokenaction: true });
+            createObj("ability", { name: 'Help', characterid: char_id, action: '!door help', istokenaction: true });
+
+            state['DoorMaster'].trapKeyedCharID = char_id;
+            retval = true;
+        }
+        return retval;
     },
 
     doorCharExists = function () {
@@ -1005,6 +1321,30 @@ var DoorMaster = DoorMaster || (function () {
         }
         if (char) {
             if (state['DoorMaster'].doorKeyedCharID == '') state['DoorMaster'].doorKeyedCharID = char.get('id');
+            return true;
+        } else return false;
+    },
+
+    trapCharExists = function () {
+        var char = getObj('character', state['DoorMaster'].trapCharID);
+        if (!char) {
+            var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
+            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Trapped'; });
+        }
+        if (char) {
+            if (state['DoorMaster'].trapCharID == '') state['DoorMaster'].trapCharID = char.get('id');
+            return true;
+        } else return false;
+    },
+
+    trapKeyedCharExists = function () {
+        var char = getObj('character', state['DoorMaster'].trapKeyedCharID);
+        if (!char) {
+            var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
+            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Trapped Keyed'; });
+        }
+        if (char) {
+            if (state['DoorMaster'].trapKeyedCharID == '') state['DoorMaster'].trapKeyedCharID = char.get('id');
             return true;
         } else return false;
     },
@@ -1052,7 +1392,7 @@ var DoorMaster = DoorMaster || (function () {
         return nr.test(txt);
     },
 
-    rollDice = function (skill_mod, adv_dis = '0') {
+    rollSkillCheck = function (skill_mod, adv_dis = '0') {
         // example +3::Sleight~of~Hand
         skill_mod = skill_mod.split('::');
         var end_result = {base: 0, mod: parseInt(skill_mod[0]), skill: skill_mod[1].replace(/~/g, ' '), adv_dis: adv_dis};
@@ -1093,6 +1433,24 @@ var DoorMaster = DoorMaster || (function () {
             if (_.find(charAttrs, function (x) { return x.get('name').search('mancer') != -1; })) sheet = '5th Edition OGL';
         }
         return sheet;
+    },
+
+    processGMNotes = function (notes) {
+        var retval, text = unescape(notes).trim();
+        if (text.search('{template:') != -1) {
+            text = removeFormatting(text);
+            text = text.replace('&amp;{template', '&{template');
+        }
+        return text;
+    },
+
+    removeFormatting = function (html) {
+        html = html.replace(/<p[^>]*>/gi, '<p>').replace(/\n(<p>)?/gi, '</p><p>').replace(/<br>/gi, '</p><p>').replace(/<\/?(span|div|pre|img|code|a|b|i|h1|h2|h3|h4|h5|hr)[^>]*>/gi, '');
+        if (html != '' && /<p>.*?<\/p>/g.test(html)) {
+            html = html.match(/<p>.*?<\/p>/g).map( l => l.replace(/^<p>(.*?)<\/p>$/,'$1'));
+            html = html.join(/\n/);
+        }
+        return html;
     },
 
     runUpgrades = function () {
