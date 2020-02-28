@@ -16,7 +16,7 @@ var DoorMaster = DoorMaster || (function () {
 
     var version = '4.1',
     timestamp = 1582769836239,
-    debugMode = true,
+    debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
         title: 'padding: 0 0 6px 0; color: ##591209; font-size: 1.5em; font-weight: bold; font-variant: small-caps; font-family: "Times New Roman",Times,serif;',
