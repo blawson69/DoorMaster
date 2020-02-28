@@ -14,8 +14,9 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.0',
-    debugMode = false,
+    var version = '4.1',
+    timestamp = 1582769836239,
+    debugMode = true,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
         title: 'padding: 0 0 6px 0; color: ##591209; font-size: 1.5em; font-weight: bold; font-variant: small-caps; font-family: "Times New Roman",Times,serif;',
@@ -26,7 +27,7 @@ var DoorMaster = DoorMaster || (function () {
         result: 'font-size: 1.125em; font-weight: bold; cursor: pointer; font-family: "Lucida Console", Monaco, monospace;',
         msg: 'padding: 4px 10px; color: #C91010; font-size: 1em; border: 1px solid #C91010; text-align: center;'
     },
-    DOOR_CONDITIONS = ['Unlocked', 'Locked', 'Keyed', 'Barred', 'Stuck', 'Disabled', 'Broken'],
+    DOOR_CONDITIONS = ['Unlocked', 'Locked', 'Keyed', 'Barred', 'Obstructed', 'Stuck', 'Disabled', 'Broken'],
 
     checkInstall = function () {
         if (!_.has(state, 'DoorMaster')) state['DoorMaster'] = state['DoorMaster'] || {};
@@ -41,6 +42,7 @@ var DoorMaster = DoorMaster || (function () {
         if (typeof state['DoorMaster'].allowFumbles == 'undefined') state['DoorMaster'].allowFumbles = true;
         if (typeof state['DoorMaster'].trapFumbles == 'undefined') state['DoorMaster'].trapFumbles = true;
         if (typeof state['DoorMaster'].showPlayersRolls == 'undefined') state['DoorMaster'].showPlayersRolls = false;
+        if (typeof state['DoorMaster'].whisper == 'undefined') state['DoorMaster'].whisper = false;
         if (typeof state['DoorMaster'].useAura == 'undefined') state['DoorMaster'].useAura = true;
         if (typeof state['DoorMaster'].doorAuraColor == 'undefined') state['DoorMaster'].doorAuraColor = '#666666';
         if (typeof state['DoorMaster'].hiddenAuraColor == 'undefined') state['DoorMaster'].hiddenAuraColor = '#99cc99';
@@ -136,6 +138,7 @@ var DoorMaster = DoorMaster || (function () {
             if (action[0] == 'fumble-toggle') state['DoorMaster'].allowFumbles = !state['DoorMaster'].allowFumbles;
             if (action[0] == 'trap-fumble-toggle') state['DoorMaster'].trapFumbles = !state['DoorMaster'].trapFumbles;
             if (action[0] == 'show-toggle') state['DoorMaster'].showPlayersRolls = !state['DoorMaster'].showPlayersRolls;
+            if (action[0] == 'whisper-toggle') state['DoorMaster'].whisper = !state['DoorMaster'].whisper;
         });
 
         if (err != '') {
@@ -167,6 +170,10 @@ var DoorMaster = DoorMaster || (function () {
         message += 'Players will ' + (state['DoorMaster'].showPlayersRolls ? '' : '<i>not</i> ') + 'see the roll results of their lock picking and door breaking attempts.<br>';
         message += '<a style=\'' + styles.textButton + '\' href="!door config --show-toggle">turn ' + (state['DoorMaster'].showPlayersRolls ? 'off' : 'on') + '</a><br><br>';
 
+        message += '<hr style="margin: 4px 12px 8px;"><div style=\'' + styles.title + '\'>Whisper Actions: ' + (state['DoorMaster'].whisper ? 'On' : 'Off') + '</div>';
+        message += 'Door interactions will ' + (state['DoorMaster'].whisper ? '' : '<i>not</i> ') + 'be whispered.<br>';
+        message += '<a style=\'' + styles.textButton + '\' href="!door config --whisper-toggle">turn ' + (state['DoorMaster'].whisper ? 'off' : 'on') + '</a><br><br>';
+
         message += '<hr style="margin: 4px 12px 8px;">You have created ' + (_.size(state['DoorMaster'].doors) == 0 ? 'no doors yet' : (_.size(state['DoorMaster'].doors) == 1 ? '1 door' : _.size(state['DoorMaster'].doors) + ' doors')) + '.<br>';
         message += '<div style=\'' + styles.buttonWrapper + '\'><a style="' + styles.button + ';" href="!door create" title="Create a new door with the selected tokens">Create Door</a> &nbsp; <a style="' + styles.button + ';" href="!door status" title="Show the status the selected token\'s door">Door Status</a></div><br>';
 
@@ -193,7 +200,8 @@ var DoorMaster = DoorMaster || (function () {
             return;
         }
 
-        var paths = [], new_door = {open: false, tokens_locked: false};
+        var paths = [], now = new Date(),
+        new_door = {open: false, tokens_locked: false, created: now.toString()};
         _.each(msg.selected, function (obj) {
             var token = getObj(obj._type, obj._id);
             if (token) {
@@ -339,7 +347,7 @@ var DoorMaster = DoorMaster || (function () {
             if (token) {
                 var title = '', message = '', triggered = false, door = getDoorFromTokenID(token.get('id'));
                 if (door) {
-                    var show_dialog = true, whispered = true;
+                    var show_dialog = true, whispered = state['DoorMaster'].whisper;
                     var chars = getCharsFromPlayerID(msg.playerid);
                     var char_name = _.size(chars) == 1 ? chars[0].get('name') : '';
 
@@ -348,7 +356,7 @@ var DoorMaster = DoorMaster || (function () {
                         return;
                     }
 
-                    if (action == 'break' && door.condition != 'Barred' && door.condition != 'Broken') {
+                    if (action == 'break' && door.condition != 'Obstructed' && door.condition != 'Broken') {
                         if (die_mod != null && adv_dis != null) {
                             // If skill and adv/dis have been sent, attempt to break the door down
                             var char = getObj('character', char_id);
@@ -367,17 +375,17 @@ var DoorMaster = DoorMaster || (function () {
                                     door.condition = 'Broken';
                                     message += ', but has ruined it. The ' + door.label['door'] + ' will no longer close.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char_name + ' has successfully broken through the ' + door.label['door'] + ' but destroyed it.<br>' + gm_display, 'GM');
+                                    if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has successfully broken through the ' + door.label['door'] + ' but destroyed it.<br>' + gm_display, 'GM');
                                 } else if (break_chance >= 70 && door.condition == 'Locked') {
                                     door.condition = 'Disabled';
                                     message += ', but has damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char_name + ' has successfully broken through the ' + door.label['door'] + ' but damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.<br>' + gm_display, 'GM');
+                                    if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has successfully broken through the ' + door.label['door'] + ' but damaged the ' + (typeof door.lock_id != 'undefined' ? 'locking mechanism' : 'lock') + '.<br>' + gm_display, 'GM');
                                 } else {
                                     door.condition = 'Unlocked';
                                     message += '.';
                                     if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                    showDialog('', char_name + ' has successfully broken the ' + door.label['door'] + ' open.<br>' + gm_display, 'GM');
+                                    if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has successfully broken the ' + door.label['door'] + ' open.<br>' + gm_display, 'GM');
                                 }
                                 if (door.condition == 'Broken') breakDoor(door);
                                 else toggleDoorOpen(door);
@@ -387,7 +395,7 @@ var DoorMaster = DoorMaster || (function () {
                                 message = char_name + ' has not succeeded in breaking through the ' + door.label['door'] + '.';
                                 if (door.condition == 'Unlocked') message += ' However, you could just try opening it...';
                                 if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                showDialog('', char_name + ' has not succeeded in breaking through the ' + door.label['door'] + '.<br>' + gm_display, 'GM');
+                                if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has not succeeded in breaking through the ' + door.label['door'] + '.<br>' + gm_display, 'GM');
                             }
                         } else if (char_id || _.size(chars) == 1) {
                             // If one (or selected) character, give action for attempt to break
@@ -465,22 +473,22 @@ var DoorMaster = DoorMaster || (function () {
                                         if (roll_result.final >= door.lockDC) {
                                             title = 'Success!';
                                             message = char_name + ' has successfully picked the lock...';
-                                            if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
                                             door.condition = 'Unlocked';
-                                            showDialog('', char_name + ' has successfully picked the lock.<br>' + gm_display, 'GM');
+                                            if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
+                                            if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has successfully picked the lock.<br>' + gm_display, 'GM');
                                             triggered = triggeredTrap(door, ['Pick', 'Unlock']);
                                         } else if (roll_result.base == 1 && state['DoorMaster'].allowFumbles) {
                                             title = 'Fumble!';
                                             message =  char_name + ' has broken the lock. No more attempts to pick it will succeed.';
-                                            if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
                                             door.condition = 'Disabled';
-                                            showDialog('', char_name + ' has fumbled while picking the lock.<br>' + gm_display, 'GM');
+                                            if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
+                                            if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has fumbled while picking the lock.<br>' + gm_display, 'GM');
                                             triggered = triggeredTrap(door, ['Fail-Pick']);
                                         } else {
                                             title = 'Fail!';
                                             message =  char_name + ' has not succeeded in picking this lock.';
                                             if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                                            showDialog('', char_name + ' has not succeeded in picking the lock.<br>' + gm_display, 'GM');
+                                            if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has not succeeded in picking the lock.<br>' + gm_display, 'GM');
                                             triggered = triggeredTrap(door, ['Fail-Pick']);
                                         }
                                     } else if (char_id != null || _.size(chars) == 1) {
@@ -522,7 +530,22 @@ var DoorMaster = DoorMaster || (function () {
                                 break;
                             case 'Barred':
                                 title = 'Barred';
-                                message = 'This ' + door.label['door'] + ' seems to be barred or blocked from the other side.';
+                                if (action == 'pick') message = 'You can lift the bar on this ' + door.label['door'] + '. No lock picking is neccessary.';
+                                if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
+                                    message = 'The ' + door.label['switch'] + ' begins to move but cannot.';
+                                }
+                                if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
+                                    title = '';
+                                    message = 'This ' + door.label['door'] + ' has a ' + door.label['switch'] + ' that must be used.';
+                                }
+                                if (!door.open && token.get('id') == door.closed_id && action == 'open/close') {
+                                    door.condition = 'Unlocked';
+                                    message = 'You have removed the bar from this ' + door.label['door'] + '.';
+                                }
+                                break;
+                            case 'Obstructed':
+                                title = 'Obstructed';
+                                message = 'This ' + door.label['door'] + ' seems to be blocked from the other side.';
                                 if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this ' + door.label['door'] + '.' : ' Your attempt to pick it is ineffectual.');
                                 if (action == 'break') message += ' You cannot hope to break through.';
                                 if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
@@ -841,21 +864,21 @@ var DoorMaster = DoorMaster || (function () {
                                     if (typeof door.lock_id == 'undefined') enableKey(door, true);
                                     else enableLock(door, true);
                                 }
-                                showDialog('Key Used', 'Success! The door is now unlocked.', msg.who);
+                                showDialog('Key Used', 'Success! The door is now unlocked.', (state['DoorMaster'].whisper ? msg.who : ''));
                                 if (triggeredTrap(door, ['Unlock'])) executeTrap(msg, door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
                                 break;
                             case 'Unlocked':
                                 if (door.open) toggleDoorOpen(door);
                                 door.condition = 'Locked';
-                                showDialog('Key Used', 'This door is now locked.', msg.who);
+                                showDialog('Key Used', 'This door is now locked.', (state['DoorMaster'].whisper ? msg.who : ''));
                                 break;
                             default:
-                                showDialog('Key Used', 'Using a key on this door makes no sense right now.', msg.who);
+                                showDialog('Key Used', 'Using a key on this door makes no sense right now.', (state['DoorMaster'].whisper ? msg.who : ''));
                         }
                     } else {
                         var message = 'Passphrase "' + passphrase + '" is incorrect. The door remains ' + (door.condition == 'Locked' ? 'locked' : 'unlocked') + '.';
                         if (door.condition != 'Locked' && door.condition != 'Unlocked') message = 'Using a key on this door makes no sense right now.';
-                        showDialog('Key Used', message, msg.who);
+                        showDialog('Key Used', message, (state['DoorMaster'].whisper ? msg.who : ''));
                     }
                 } else showDialog('Key Use Error', 'Invalid door ID.', msg.who);
             } else showDialog('Key Use Error', 'Invalid token.', msg.who);
@@ -902,7 +925,7 @@ var DoorMaster = DoorMaster || (function () {
             if (token) {
                 var title = '', message = '', triggered = false, door = getDoorFromTokenID(token.get('id'));
                 if (door) {
-                    var show_dialog = true, whispered = true;
+                    var show_dialog = true, whispered = state['DoorMaster'].whisper;
                     var chars = getCharsFromPlayerID(msg.playerid);
                     var char_name = _.size(chars) == 1 ? chars[0].get('name') : '';
 
@@ -922,9 +945,9 @@ var DoorMaster = DoorMaster || (function () {
                         if (roll_result.final >= door.trap['disableDC']) {
                             title = 'Success!';
                             message = char_name + ' has successfully disabled the trap...';
-                            if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
                             door.trap['disabled'] = true;
-                            showDialog('', char_name + ' has successfully disabled the trap.<br>' + gm_display, 'GM');
+                            if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
+                            if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has successfully disabled the trap.<br>' + gm_display, 'GM');
 
                             // Remove "Disable" button from door tokens
                             revealDisableTrap(door, true);
@@ -932,12 +955,12 @@ var DoorMaster = DoorMaster || (function () {
                             title = 'Fumble!';
                             message =  char_name + ' has triggered the trap!';
                             if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                            showDialog('', char_name + ' has fumbled while disabling the trap.<br>' + gm_display, 'GM');
+                            if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has fumbled while disabling the trap.<br>' + gm_display, 'GM');
                         } else {
                             title = 'Fail!';
                             message =  char_name + ' has not succeeded in disabling the trap.';
                             if (state['DoorMaster'].showPlayersRolls) message += '<br>' + roll_display;
-                            showDialog('', char_name + ' has not succeeded in disabling the trap.<br>' + gm_display, 'GM');
+                            if (state['DoorMaster'].whisper || !state['DoorMaster'].showPlayersRolls) showDialog('', char_name + ' has not succeeded in disabling the trap.<br>' + gm_display, 'GM');
                         }
                     } else if (char_id != null || _.size(chars) == 1) {
                         // If one (or selected) character, give action for attempt to disable
@@ -1105,7 +1128,7 @@ var DoorMaster = DoorMaster || (function () {
             }
 
             message += '<p>';
-            message += '<b>Condition:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set Condition|Unlocked|Locked|Barred|Stuck|Disabled}" title="Change condition">' + door.condition + '</a><br>';
+            message += '<b>Condition:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set Condition|Unlocked|Locked|Barred|Obstructed|Stuck|Disabled}" title="Change condition">' + door.condition + '</a><br>';
             message += '<b>Visibility:</b> ' + (door.hidden ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-door" title="Reveal ' + door.label['door'] + ' to players">' + door.visibility + '</a>' : door.visibility) + '<br>';
             message += '<b>Door Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-door|?{Label|' + door.label['door'] + '}" title="Change door label">' + door.label['door'] + '</a><br>';
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
@@ -1470,6 +1493,15 @@ var DoorMaster = DoorMaster || (function () {
                 if (typeof door.label == 'undefined') door.label = {door: 'door', switch: 'switch'};
             });
         }
+
+        // 4.1 upgrade
+        _.each(state['DoorMaster'].doors, function (door) {
+            if (typeof door.created == 'undefined') {
+                var now = new Date();
+                door.created = now.valueOf();
+                if (door.condition == 'Barred') door.condition = 'Obstructed';
+            }
+        });
     },
 
     generateUniqueID = function () {

@@ -1,6 +1,6 @@
 # DoorMaster
 
-> **New in 4.0:** Doors can now be [trapped](#trapped-doors)!
+> **Update for 4.1:** The Barred state has been changed! This state now represents an actual heavy bar or similarly basic means of securing a door on one side. However, "Barred" now means this bar is _on the player's side_, and players can lift or remove the bar to gain access to the door. A new State called "Obstructed" has been created to represent a bar or any other obstruction _on the opposite side_ of the door that prevents it from opening (the previous Barred state). Existing doors with the Barred state will be updated to the Obstructed state and will continue to function as designed.
 
 This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. You have the option to lock all related tokens to prevent them from accidentally being moved.
 
@@ -34,7 +34,8 @@ Each door will have one of the following States. Typically, you will only use th
 - **Unlocked** - Players can open and close the door effortlessly.
 - **Locked** - The door has a lock that either needs a key or can be picked open.
 - **[Keyed](#keyed-doors)** - The door has a lock with which the player can interact. This status is **only** used to tell DoorMaster that the door is Keyed, and will be converted to the Locked State during door creation.
-- **Barred** - This door is barred or obstructed from the opposite side. It cannot be picked or busted through.
+- **Barred** - This door is barred on the player's side. Clicking the [Use button](#doormaster-characters) will lift/remove the bar, setting the door to the Unlocked State.
+- **Obstructed** - This door is obstructed by a bar or other immovable objects from the opposite side. It cannot be picked or busted through. If the obstruction is a bar, the GM will need to change the State to Barred if players encounter the door from the other side.
 - **Stuck** -  This door is not locked, but won't open without being forced.
 - **Disabled** - A disabled door has had its lock damaged. It cannot be unlocked with a key or by picking it.
 - **Broken** - A broken door has been damaged to the point it is unusable. These doors are always open and cannot be closed by any means. You *cannot* set this State during door creation.
@@ -122,7 +123,7 @@ If not using a roll template, you can still provide die roll expressions that wi
 
 ## DoorMaster Characters
 
-DoorMaster characters are created automatically when you first install the script, and are set on the appropriate tokens to allow players to interact with them. These characters are essential for player interaction and *must not be deleted.*
+DoorMaster characters are created automatically when you first install the script, and are set on the appropriate tokens to allow players to interact with them. These characters are essential for player interaction and *must not be deleted.* Deleted DoorMaster characters will be re-created if the sandbox is restarted, but doors connected to the old character will lose functionality.
 
 The "DoorMaster" character is used for all visible doors and has four token action buttons:
 - **Use** - Use a door or switch. This should be the first button used. It will open and close Unlocked doors, and provides feedback on the State of the door if it cannot be opened.
@@ -143,6 +144,8 @@ The "DoorMaster Keyed" character adds the following token action button:
 
 The "DoorMaster Trapped" character adds the following token action button:
 - **Disable** - This button allows an attempt to disable a trap. If the player controls more than one character, they will be asked to select which character is making the attempt. A "Disable Trap" button will then appear to allow them to select the Dexterity skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to disable a trap.
+
+ If enabled in [config](#configuration), a fumble at disabling a trap will trigger the trap.
 
 The "DoorMaster Trapped Keyed" character combines the functionality of the "DoorMaster Keyed" and "DoorMaster Trapped" in for doors that are both trapped and keyed.
 
@@ -179,6 +182,7 @@ The Configuration Menu allows you to change these DoorMaster options:
 - **Lock Picking Fumbles** - You can choose to allow fumbles at lock picking attempts to disable the door's lock (Disabled), preventing it from being unlocked by key or more picking attempts. Default is On.
 - **Trap Disabling Fumbles** - You can choose to allow fumbles at trap disabling attempts, which will trigger the trap instead of disabling it. Default is On.
 - **Show Results** - You can choose to show players the results of their lock picking and door breaking attempts. If turned off, players will only see a "success" or "fail" dialog. If on, this dialog will also include the roll result, the skill they used, and whether or not they rolled at Advantage or Disadvantage. Default is Off. *These results are always provided to the GM.*
+- **Door Interactions** - You can have all door interactions whispered to the players instead of being public. Note that trap effects will always been public, and character/skill decisions will always be whispered. Default is Off.
 
 The Configuration Menu also tells you how many doors you've created so far, and gives a button for [creating a door](#door-creation) or viewing a selected door's [status](#door-status).
 
