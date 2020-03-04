@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.1',
-    timestamp = 1582769836239,
+    var version = '4.2',
+    timestamp = 1583344966739,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -54,6 +54,7 @@ var DoorMaster = DoorMaster || (function () {
 		if (debugMode) {
 			var d = new Date();
 			showDialog('Debug Mode', 'DoorMaster v' + version + ' loaded at ' + d.toLocaleTimeString() + '<br><a style=\'' + styles.textButton + '\' href="!door config">Show config</a>', 'GM');
+			//showDialog('', 'Timestamp: ' + d.valueOf(), 'GM');
 		}
 
         if (createDoorChars()) {
@@ -200,8 +201,8 @@ var DoorMaster = DoorMaster || (function () {
             return;
         }
 
-        var paths = [], now = new Date(),
-        new_door = {open: false, tokens_locked: false, created: now.toString()};
+        var paths = [], dials = [], tiles = [], decoys = [], now = new Date(), door_tokens = [],
+        new_door = {open: false, tokens_locked: false, created: now.valueOf()};
         _.each(msg.selected, function (obj) {
             var token = getObj(obj._type, obj._id);
             if (token) {
@@ -216,43 +217,69 @@ var DoorMaster = DoorMaster || (function () {
                             new_door.lockDC = (isNum(token.get('bar2_value'))) ? parseInt(token.get('bar2_value')) : 12;
                             new_door.breakDC = (isNum(token.get('bar2_max'))) ? parseInt(token.get('bar2_max')) : (new_door.condition == 'Barred' ? 30 : 15);
                             new_door.lock_passphrase = token.get('bar3_value').trim();
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
                             break;
                         case 'Open':
                             new_door.open_id = token.get('id');
                             if (token.get('bar1_value') != '') {
                                 new_door.trap = {triggers: [], disableDC: '', hidden: true, disabled: false, disable_after_trigger: true, break_door: false, effect: ''};
                                 new_door.trap['triggers'] = getTriggers(token.get('bar1_value'));
-                                new_door.trap['disableDC'] = (token.get('bar2_value') != '' ? parseInt(token.get('bar2_value')) : 15);
+                                new_door.trap['disableDC'] = (isNum(token.get('bar2_value'))) ? parseInt(token.get('bar2_value')) : 15;
                                 new_door.trap['break_door'] = (_.find(['true', 'yes', '1', 'on'], function (x) { return x == token.get('bar3_value').trim().toLowerCase(); }) ? true : false);
                                 new_door.trap['effect'] = processGMNotes(token.get('gmnotes'));
                             }
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
                             break;
                         case 'Switch':
                         case 'Switch1':
                             new_door.switch_id = token.get('id');
                             if (token.get('bar1_value') == 'Hidden') new_door.switch_hidden = true;
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
                             break;
                         case 'Switch2':
                             new_door.switch2_id = token.get('id');
                             if (token.get('bar1_value') == 'Hidden') new_door.switch_hidden = true;
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
                             break;
                         case 'Broken':
                             new_door.broken_id = token.get('id');
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
                             break;
                         case 'Lock':
                             new_door.lock_id = token.get('id');
                             if (token.get('bar1_value') == 'Hidden') new_door.lock_hidden = true;
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
                             break;
                         case 'Trap':
                             new_door.trap_id = token.get('id');
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
+                            break;
+                        case 'Dial':
+                            dials.push({dial_id: token.get('id'), rotation: getRotation(token.get('rotation')), feedback: token.get('bar1_value')});
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
+                            break;
+                        case 'Tile':
+                            tiles.push({tile_id: token.get('id'), top: token.get('top'), left: token.get('left'), feedback: token.get('bar1_value')});
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
+                            break;
+                        case 'Decoy':
+                            decoys.push({decoy_id: token.get('id'), top: token.get('top'), left: token.get('left'), feedback: token.get('bar1_value')});
+                            door_tokens.push({type: 'graphic', id: token.get('id')});
                             break;
                     }
                 } else if (token.get('type') == 'path') {
                     paths.push(token.get('id'));
+                    door_tokens.push({type: 'path', id: token.get('id')});
                 }
             }
         });
+
         new_door.paths = paths;
+        if (_.size(dials) > 0) new_door.dials = dials;
+        if (_.size(dials) == 0 && _.size(tiles) > 0) {
+            new_door.tiles = tiles;
+            if (_.size(decoys) > 0) new_door.decoys = decoys;
+        }
 
         if (typeof new_door.open_id != 'undefined' && typeof new_door.closed_id != 'undefined') {
             new_door.id = generateUniqueID();
@@ -267,10 +294,10 @@ var DoorMaster = DoorMaster || (function () {
             else new_door.switch_hidden = {original: false, current: false};
             if (new_door.lock_hidden) new_door.lock_hidden = {original: true, current: true};
             else new_door.lock_hidden = {original: false, current: false};
-            new_door.label = {door: 'door', switch: 'switch'};
+            new_door.label = {door: 'door', switch: 'switch', dial: 'dial', tile: 'tile'};
 
-            _.each(msg.selected, function (obj) {
-                var token = getObj(obj._type, obj._id);
+            _.each(door_tokens, function (obj) {
+                var token = getObj(obj.type, obj.id);
                 if (token) {
                     var aura_settings = {aura1_radius: '0.1', aura1_color: state['DoorMaster'].doorAuraColor, aura1_square: false};
                     var hidden_aura_settings = {aura2_radius: '0.1', aura2_color: state['DoorMaster'].hiddenAuraColor, aura2_square: false};
@@ -304,6 +331,20 @@ var DoorMaster = DoorMaster || (function () {
                             if (token.get('id') == new_door.lock_id) token.set({represents: state['DoorMaster'].lockCharID});
                             if (token.get('id') == new_door.lock_id && state['DoorMaster'].useAura) token.set(aura_settings);
                         }
+
+                        // Dials
+                        if (typeof new_door.dials != 'undefined' && _.find(_.pluck(new_door.dials, 'dial_id'), function (x) { return x == token.get('id') })) {
+                            token.set({controlledby: 'all', aura2_radius: '0.25', aura2_color: '#cc0000', aura2_square: false, rotation: 0});
+                        }
+
+                        // Tiles
+                        var coords = getTokenOffset(token);
+                        if (typeof new_door.tiles != 'undefined' && _.find(_.pluck(new_door.tiles, 'tile_id'), function (x) { return x == token.get('id') })) {
+                            token.set({controlledby: 'all', aura2_radius: '0.25', aura2_color: '#cc0000', aura2_square: false, top: coords.top, left: coords.left});
+                        }
+                        if (typeof new_door.decoys != 'undefined' && _.find(_.pluck(new_door.decoys, 'decoy_id'), function (x) { return x == token.get('id') })) {
+                            token.set({controlledby: 'all', aura2_radius: '', top: coords.top, left: coords.left});
+                        }
                     }
                     if (token.get('type') == 'path') token.set({layer: 'walls'});
                 }
@@ -318,12 +359,18 @@ var DoorMaster = DoorMaster || (function () {
     getTriggers = function (str) {
         var triggers = [];
         _.each(str.split(','), function (tmp) {
-            tmp = tmp.trim().substr(0, 4).toLowerCase();
+            tmp = tmp.trim().toLowerCase();
             if (tmp == 'open') triggers.push('Open');
-            if (tmp == 'touc') triggers.push('Touch');
+            if (tmp == 'touch') triggers.push('Touch');
             if (tmp == 'pick') triggers.push('Pick');
-            if (tmp == 'fail') triggers.push('Fail-Pick');
-            if (tmp == 'unlo') triggers.push('Unlock');
+            if (tmp == 'fail-pick') triggers.push('Fail-Pick');
+            if (tmp == 'unlock') triggers.push('Unlock');
+            if (tmp == 'wrong-code') triggers.push('Wrong-Code');
+            if (tmp == 'misdial') triggers.push('Misdial');
+            if (tmp == 'all-misdial') triggers.push('All-Misdial');
+            if (tmp == 'misplace') triggers.push('Misplace');
+            if (tmp == 'all-misplace') triggers.push('All-Misplace');
+            if (tmp == 'decoy') triggers.push('Decoy');
         });
         if (_.size(triggers) == 0) triggers = ['Open'];
         return triggers;
@@ -345,14 +392,14 @@ var DoorMaster = DoorMaster || (function () {
         if (_.size(msg.selected) == 1) {
             var token = getObj(msg.selected[0]._type, msg.selected[0]._id);
             if (token) {
-                var title = '', message = '', triggered = false, door = getDoorFromTokenID(token.get('id'));
+                var title = '', message = '', triggered = false, door = _.find(state['DoorMaster'].doors, function (x) { return x.id == token.get('name'); });
                 if (door) {
                     var show_dialog = true, whispered = state['DoorMaster'].whisper;
                     var chars = getCharsFromPlayerID(msg.playerid);
                     var char_name = _.size(chars) == 1 ? chars[0].get('name') : '';
 
                     if (triggeredTrap(door, ['Touch'])) {
-                        executeTrap(msg, door, char_name);
+                        executeTrap(door, char_name);
                         return;
                     }
 
@@ -414,7 +461,7 @@ var DoorMaster = DoorMaster || (function () {
                             message += '}" title="Please select which character is attempting to pick the lock.">Choose Character</a></div>';
                         }
                     } else {
-                        // IgnorePick Lock from a disabled yet still selected Lock token
+                        // Ignore Pick Lock from a disabled yet still selected Lock token
                         if (typeof door.lock_id != 'undefined' && token.get('id') == door.lock_id && token.get('represents') == '') {
                             showDialog('', 'This lock no longer functions.', msg.who);
                             return;
@@ -443,7 +490,7 @@ var DoorMaster = DoorMaster || (function () {
                                 break;
                             case 'Locked':
                                 title = 'Locked';
-                                message = typeof door.lock_id == 'undefined' ? 'You cannot open the ' + door.label['door'] + ' without a key... or try another method.' : '... yet there is no lock visible on the ' + door.label['door'] + '.';
+                                message = (typeof door.lock_id == 'undefined' && typeof door.dials == 'undefined' && typeof door.tiles == 'undefined') ? 'You cannot open the ' + door.label['door'] + ' without a key... or try another method.' : '... yet there is no lock visible on the ' + door.label['door'] + '.';
 
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
                                     title = '', whispered = true;
@@ -457,7 +504,7 @@ var DoorMaster = DoorMaster || (function () {
                                 }
 
                                 if (action == 'pick') {
-                                    if (typeof door.lock_id != 'undefined' && token.get('id') != door.lock_id) {
+                                    if ((typeof door.lock_id != 'undefined' && token.get('id') != door.lock_id) || typeof door.dials != 'undefined' || typeof door.tiles != 'undefined') {
                                         message = 'This ' + door.label['door'] + ' has no visible lock to pick...';
                                         break;
                                     }
@@ -580,7 +627,7 @@ var DoorMaster = DoorMaster || (function () {
                     }
 
                     if (show_dialog) showDialog(title, message, (whispered ? msg.who : ''));
-                    if (triggered) executeTrap(msg, door, char_name);
+                    if (triggered) executeTrap(door, char_name);
 
                 } else showDialog('Door Use Error', 'Invalid ID.', msg.who);
             } else showDialog('Door Use Error', 'Invalid token.', msg.who);
@@ -695,7 +742,7 @@ var DoorMaster = DoorMaster || (function () {
             var token = getObj(msg.selected[0]._type, msg.selected[0]._id);
             if (token) {
                 var token_id = token.get('id');
-                door = getDoorFromTokenID(token_id);
+                door =_.find(state['DoorMaster'].doors, function (x) { return x.id == token.get('name'); });
             } else showDialog('Destruction Error', 'Invalid token.', 'GM');
         } else showDialog('Destruction Error', 'You must select a token associated with a door.', 'GM');
 
@@ -720,6 +767,18 @@ var DoorMaster = DoorMaster || (function () {
             _.each(door.paths, function (path_id) {
                 var path = getObj('path', path_id);
                 if (path) path.set({layer: 'objects'});
+            });
+            _.each(door.dials, function (dial) {
+                var dial_token = getObj('graphic', dial.dial_id);
+                if (dial_token) dial_token.set({name: 'Dial', controlledby: '', aura2_radius: '', bar1_value: (dial.feedback ? dial.feedback : ''), rotation: dial.rotation});
+            });
+            _.each(door.tiles, function (tile) {
+                var tile_token = getObj('graphic', tile.tile_id);
+                if (tile_token) tile_token.set({name: 'Tile', controlledby: '', aura2_radius: '', bar1_value: (tile.feedback ? tile.feedback : ''), top: tile.top, left: tile.left});
+            });
+            _.each(door.decoys, function (decoy) {
+                var decoy_token = getObj('graphic', decoy.decoy_id);
+                if (decoy_token) decoy_token.set({name: 'Decoy', controlledby: '', aura2_radius: '', bar1_value: (decoy.feedback ? decoy.feedback : ''), top: decoy.top, left: decoy.left});
             });
 
             state['DoorMaster'].lockedTokens = _.reject(state['DoorMaster'].lockedTokens, function (x) { return x == door.open_id; });
@@ -842,7 +901,7 @@ var DoorMaster = DoorMaster || (function () {
         if (_.size(msg.selected) == 1) {
             var token = getObj(msg.selected[0]._type, msg.selected[0]._id);
             if (token) {
-                var door = getDoorFromTokenID(token.get('id'));
+                var door = _.find(state['DoorMaster'].doors, function (x) { return x.id == token.get('name'); });
                 if (door) {
                     // Ignore input from a disabled yet still selected Lock token
                     if (typeof door.lock_id != 'undefined' && token.get('id') == door.lock_id && token.get('represents') == '') {
@@ -851,7 +910,7 @@ var DoorMaster = DoorMaster || (function () {
                     }
 
                     if (token.get('id') != door.lock_id && triggeredTrap(door, ['Touch'])) {
-                        executeTrap(msg, door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
+                        executeTrap(door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
                         return;
                     }
 
@@ -865,7 +924,7 @@ var DoorMaster = DoorMaster || (function () {
                                     else enableLock(door, true);
                                 }
                                 showDialog('Key Used', 'Success! The door is now unlocked.', (state['DoorMaster'].whisper ? msg.who : ''));
-                                if (triggeredTrap(door, ['Unlock'])) executeTrap(msg, door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
+                                if (triggeredTrap(door, ['Unlock'])) executeTrap(door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
                                 break;
                             case 'Unlocked':
                                 if (door.open) toggleDoorOpen(door);
@@ -879,6 +938,7 @@ var DoorMaster = DoorMaster || (function () {
                         var message = 'Passphrase "' + passphrase + '" is incorrect. The door remains ' + (door.condition == 'Locked' ? 'locked' : 'unlocked') + '.';
                         if (door.condition != 'Locked' && door.condition != 'Unlocked') message = 'Using a key on this door makes no sense right now.';
                         showDialog('Key Used', message, (state['DoorMaster'].whisper ? msg.who : ''));
+                        if (triggeredTrap(door, ['Wrong-Code'])) executeTrap(door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
                     }
                 } else showDialog('Key Use Error', 'Invalid door ID.', msg.who);
             } else showDialog('Key Use Error', 'Invalid token.', msg.who);
@@ -887,7 +947,7 @@ var DoorMaster = DoorMaster || (function () {
         }
     },
 
-    executeTrap = function (msg, door, char_name = '') {
+    executeTrap = function (door, char_name = '') {
         var victim = (char_name != '') ? char_name : 'Victim';
         if (door.trap['effect'] != '') {
             var diceExp, effect = _.clone(door.trap['effect']);
@@ -911,6 +971,11 @@ var DoorMaster = DoorMaster || (function () {
         if (typeof door.trap_id != 'undefined') {
             var trap_token = getObj('graphic', door.trap_id);
             trap_token.set({layer: 'objects'});
+            if (!door.trap['disable_after_trigger']) {
+                setTimeout(function () {
+                    trap_token.set({layer: 'walls'});
+                }, 1500);
+            }
         }
     },
 
@@ -923,14 +988,14 @@ var DoorMaster = DoorMaster || (function () {
         if (_.size(msg.selected) == 1) {
             var token = getObj(msg.selected[0]._type, msg.selected[0]._id);
             if (token) {
-                var title = '', message = '', triggered = false, door = getDoorFromTokenID(token.get('id'));
+                var title = '', message = '', triggered = false, door = _.find(state['DoorMaster'].doors, function (x) { return x.id == token.get('name'); });
                 if (door) {
                     var show_dialog = true, whispered = state['DoorMaster'].whisper;
                     var chars = getCharsFromPlayerID(msg.playerid);
                     var char_name = _.size(chars) == 1 ? chars[0].get('name') : '';
 
                     if (triggeredTrap(door, ['Touch'])) {
-                        executeTrap(msg, door, char_name);
+                        executeTrap(door, char_name);
                         return;
                     }
 
@@ -1009,6 +1074,7 @@ var DoorMaster = DoorMaster || (function () {
         return roll + plus;
     },
 
+    // Door Status Window
     commandDoorStatus = function (msg, alert = '') {
         var door, message = '', parms = msg.content.split(/\s+/i);
         if (parms[2] && parms[2] != '') {
@@ -1017,11 +1083,12 @@ var DoorMaster = DoorMaster || (function () {
             var token = getObj(msg.selected[0]._type, msg.selected[0]._id);
             if (token) {
                 var token_id = token.get('id');
-                door = getDoorFromTokenID(token_id);
+                door = _.find(state['DoorMaster'].doors, function (x) { return x.id == token.get('name'); });
             } else showDialog('Status Error', 'Invalid token.', 'GM');
         } else showDialog('Status Error', 'You must select a door or switch token.', 'GM');
 
         if (door) {
+            if (typeof door.label == 'undefined') door.label = {door: 'door', switch: 'switch', dial: 'dial', tile: 'tile'};
             var actions = parms[3] ? parms[3].split('|') : [];
             switch (actions[0]) {
                 case '--token-lock':
@@ -1107,6 +1174,7 @@ var DoorMaster = DoorMaster || (function () {
                     break;
                 case '--toggle-trap-reset':
                     door.trap['disable_after_trigger'] = !door.trap['disable_after_trigger'];
+                    if (!door.trap['disable_after_trigger']) door.trap['break_door'] = false;
                     alert = 'Trap auto reset has been updated.';
                     break;
                 case '--toggle-trap-break':
@@ -1114,12 +1182,32 @@ var DoorMaster = DoorMaster || (function () {
                     alert = 'Trap will' + (door.trap['break_door'] ? ' now' : ' no longer') + ' break the door.';
                     break;
                 case '--label-door':
-                    door.label['door'] = actions[1].toLowerCase().trim();
-                    alert = 'Door label has been updated.';
+                    var label = msg.content.split(/\s*\|\s*/i);
+                    if (label[1] && label[1].trim() != '') {
+                        door.label['door'] = label[1].toLowerCase().trim();
+                        alert = 'Door label has been updated.';
+                    } else alert = '⚠️ Door label was blank! Not changed.';
                     break;
                 case '--label-switch':
-                    door.label['switch'] = actions[1].toLowerCase().trim();
-                    alert = 'Switch label has been updated.';
+                    var label = msg.content.split(/\s*\|\s*/i);
+                    if (label[1] && label[1].trim() != '') {
+                        door.label['switch'] = label[1].toLowerCase().trim();
+                        alert = 'Switch label has been updated.';
+                    } else alert = '⚠️ Switch label was blank! Not changed.';
+                    break;
+                case '--label-dial':
+                    var label = msg.content.split(/\s*\|\s*/i);
+                    if (label[1] && label[1].trim() != '') {
+                        door.label['dial'] = label[1].toLowerCase().trim();
+                        alert = 'Dial label has been updated.';
+                    } else alert = '⚠️ Dial label was blank! Not changed.';
+                    break;
+                case '--label-tile':
+                    var label = msg.content.split(/\s*\|\s*/i);
+                    if (label[1] && label[1].trim() != '') {
+                        door.label['tile'] = label[1].toLowerCase().trim();
+                        alert = 'Tile label has been updated.';
+                    } else alert = '⚠️ Tile label was blank! Not changed.';
                     break;
             }
 
@@ -1163,10 +1251,25 @@ var DoorMaster = DoorMaster || (function () {
 
                 message += '<b>Triggers:</b> ' + door.trap['triggers'].join(', ') + '<br>';
                 message += '<b>Auto Reset:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-trap-reset" title="Turn trap auto reset ' + (door.trap['disable_after_trigger'] ? 'ON' : 'OFF') + '">' + (door.trap['disable_after_trigger'] ? 'OFF' : 'ON') + '</a><br>';
-                message += '<b>Break Door:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-trap-break" title="Turn ' + (door.trap['break_door'] ? 'OFF' : 'ON') + ' breaking the door when triggered">' + (door.trap['break_door'] ? 'ON' : 'OFF') + '</a><br>';
+
+                if (door.trap['disable_after_trigger']) message += '<b>Break Door:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-trap-break" title="Turn ' + (door.trap['break_door'] ? 'OFF' : 'ON') + ' breaking the door when triggered">' + (door.trap['break_door'] ? 'ON' : 'OFF') + '</a><br>';
+                else message += '<b>Break Door:</b> <span style="cursor: help;" title="Trap cannot break the door while Auto Reset is on">' + (door.trap['break_door'] ? 'ON' : 'OFF') + '</span><br>';
+
                 effect = (effect.startsWith('&{template') ? effect.replace(/\{/g, '&#123;').replace(/\}/g, '&#125;') : effect.replace(/<[^>]+>/gi, ''));
                 message += '<b>Effect:</b><br>' + (effect.search('&#123;template') != -1 ? '<i>' : '') + effect.substr(0, 145) + (effect.search('&#123;template') != -1 ? '</i>' : '') + (effect.length > 120 ? '&hellip;' : '') + '<br>';
                 message += '</p><hr style="margin: 4px 12px;">';
+            }
+
+            if (typeof door.dials != 'undefined') {
+                message += '<p>This door has ' + (_.size(door.dials) == 1 ? '1 dial' : _.size(door.dials) + ' dials') + ' in use.<br>';
+                message += '<b>Dial Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-dial|?{Label|' + door.label['dial'] + '}" title="Change dial label">' + door.label['dial'] + '</a></p>';
+            }
+
+            if (typeof door.tiles != 'undefined') {
+                message += '<p>This door has ' + (_.size(door.tiles) == 1 ? '1 tile' : _.size(door.tiles) + ' tiles');
+                if (typeof door.decoys != 'undefined') message += ' and ' + (_.size(door.decoys) == 1 ? '1 decoy' : _.size(door.decoys) + ' decoys');
+                message += ' in use.<br>';
+                message += '<b>Tile Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-tile|?{Label|' + door.label['tile'] + '}" title="Change tile label">' + door.label['tile'] + '</a></p>';
             }
 
             message += '<p><b>Tokens locked?</b> ' + (door.tokens_locked ? 'Yes' : '<span style="color: #C91010;">No</span> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --token-lock" title="Lock all associated tokens">lock</a>') + '</p>';
@@ -1175,17 +1278,6 @@ var DoorMaster = DoorMaster || (function () {
 
             showDialog((door.open ? 'Open ' : 'Closed ') + initCap(door.label['door']), message, 'GM');
         } else showDialog('Door Status Error', 'Invalid ID.', 'GM');
-    },
-
-    getDoorFromTokenID = function (token_id) {
-        var door = _.find(state['DoorMaster'].doors, function (x) { return x.closed_id == token_id; });
-        if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.open_id == token_id; });
-        if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.switch_id == token_id; });
-        if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.switch2_id == token_id; });
-        if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.broken_id == token_id; });
-        if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.lock_id == token_id; });
-        if (!door) door = _.find(state['DoorMaster'].doors, function (x) { return x.trap_id == token_id; });
-        return door;
     },
 
     // Get all player controlled characters that are not "utility characters"
@@ -1199,11 +1291,15 @@ var DoorMaster = DoorMaster || (function () {
         return chars;
     },
 
-    // Sets first letter of string to a capital
+    // Capitalizes the first letter of each word in a string
     initCap = function (str) {
-        var str = str.split('');
-        str[0] = str[0].toUpperCase();
-        return str.join('');
+        var new_words = [], words = str.split(/\s+/g);
+        _.each(words, function (word) {
+            var letters = word.split('');
+            letters[0] = letters[0].toUpperCase();
+            new_words.push(letters.join(''));
+        });
+        return new_words.join(' ');
     },
 
     getSkills = function (char_id, attribute = 'DEX') {
@@ -1448,6 +1544,31 @@ var DoorMaster = DoorMaster || (function () {
         return (ratio >= 128) ? 'black' : 'white';
     },
 
+    // Returns a number between -179 and 180 for comparing angles
+    getRotation = function (rotation) {
+        var real_rotation = rotation;
+        if (rotation < 0) real_rotation = 360 + rotation;
+        if (rotation > 360) real_rotation = rotation % 360;
+        if (rotation == 360) real_rotation = 0;
+        if (real_rotation > 180) real_rotation -= 360;
+        return parseInt(real_rotation);
+    },
+
+    // Returns offset coordinates that don't place the token off the map
+    getTokenOffset = function (token) {
+        var top = Math.round(token.get('top')), left = Math.round(token.get('left')),
+        page = getObj('page', token.get('pageid'));
+        var cell_width = page.get('snapping_increment') * 70; //pixels per unit
+        var page_width = page.get('width') * cell_width; // pixel width of page
+        var page_height = page.get('height') * cell_width; // pixel height of page
+        var token_offset =(token.get('isdrawing') ? cell_width / 2 : cell_width); //amount to offset token
+
+        top = (top <= page_height / 2) ? top + token_offset : top - token_offset;
+        left = (left <= page_width / 2) ? left + token_offset : left - token_offset;
+
+        return {top: Math.round(top), left: Math.round(left)};
+    },
+
     detectSheet = function () {
         var sheet = 'Unknown', char = findObjs({type: 'character'})[0];
         if (char) {
@@ -1539,16 +1660,103 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- PUBLIC FUNCTIONS ----//
 
-    handleMove = function(obj, prev) {
-        // Enforces locks on tokens
+    // Enforces locks on tokens and checks tile placement
+    handleMove = function (obj, prev) {
         if (_.find(state['DoorMaster'].lockedTokens, function (x) { return x == obj.get('id'); })) {
             obj.set({left: prev.left, top: prev.top, rotation: prev.rotation});
+        }
+        var door = _.find(state['DoorMaster'].doors, function (x) { return x.id == obj.get('name'); });
+        if (door) {
+            // Lock movement of dial tokens but not rotation, of course
+            var dial_ids = (typeof door.dials != 'undefined') ? _.pluck(door.dials, 'dial_id') : [];
+            if (door.tokens_locked && _.find(dial_ids, function (x) { return x = obj.get('id'); })) {
+                obj.set({left: prev.left, top: prev.top});
+            }
+
+            // Check placement of tiles
+            if (door.condition == 'Locked' && typeof door.tiles != 'undefined') {
+                var tile_ids = _.pluck(door.tiles, 'tile_id');
+
+                if (_.find(tile_ids, function (x) { return x == obj.get('id'); })) {
+                    var responses = _.compact(_.pluck(door.tiles, 'feedback'));
+                    if (typeof door.decoys != 'undefined') {
+                        responses.push(_.compact(_.pluck(door.decoys, 'feedback')));
+                        responses = _.flatten(responses);
+                    }
+                    if (_.size(responses) == 0) responses = ['A muffled "click" is heard...'];
+                    var all_placed = true;
+                    _.each(door.tiles, function (tile) {
+                        var placed = true, tile_token = getObj('graphic', tile.tile_id);
+                        if (Math.abs(tile_token.get('top') - tile.top) >= 5 || Math.abs(tile_token.get('left') - tile.left) >= 5) {
+                            all_placed = false;
+                            placed = false;
+                        }
+                        tile_token.set({aura2_radius: '0.25', aura2_color: (placed ? '#00cc00' : '#cc0000')});
+                        if (!placed && tile.tile_id == obj.get('id') && triggeredTrap(door, ['Misplace'])) executeTrap(door, initCap(door.label['tile']) + ' Mover');
+                    });
+                    if (all_placed) {
+                        door.condition = 'Unlocked';
+                        _.each(door.tiles, function (tile) {
+                            var tile_token = getObj('graphic', tile.tile_id);
+                            tile_token.set({aura2_radius: ''});
+                        });
+                        showDialog('Unlocked', responses[randomInteger(_.size(responses))-1] );
+                        if (triggeredTrap(door, ['Unlock'])) executeTrap(door, initCap(door.label['tile']) + ' Mover');
+                    } else if (triggeredTrap(door, ['All-Misplace'])) executeTrap(door, initCap(door.label['tile']) + ' Mover');
+                }
+
+                // Check for wrongly placed decoy tokens
+                var decoy_ids = (typeof door.decoys != 'undefined') ? _.pluck(door.decoys, 'decoy_id') : [];
+                if (_.find(decoy_ids, function (x) { return x == obj.get('id'); }) && triggeredTrap(door, ['Decoy'])) {
+                    var wrong = false;
+                    _.each(door.tiles, function (tile) {
+                        if (Math.abs(obj.get('top') - tile.top) < 5 && Math.abs(obj.get('left') - tile.left) < 5) wrong = true;
+                    });
+                    if (wrong) executeTrap(door, initCap(door.label['tile']) + ' Mover');
+                }
+            }
+        }
+    },
+
+    // Checks rotation on dials
+    handleRotation = function (obj) {
+        var token = getObj('graphic', obj.get('id'));
+        if (token) {
+            var door = _.find(state['DoorMaster'].doors, function (x) { return x.id == token.get('name'); })
+            if (door && door.condition == 'Locked' && typeof door.dials != 'undefined') {
+                var dial_ids = _.pluck(door.dials, 'dial_id');
+                if (_.find(dial_ids, function (x) { return x == token.get('id'); })) {
+                    var responses = _.compact(_.pluck(door.dials, 'feedback'));
+                    if (_.size(responses) == 0) responses = ['A muffled "click" is heard...'];
+                    var all_dialed = true;
+                    _.each(door.dials, function (dial) {
+                        var dialed = true, dial_token = getObj('graphic', dial.dial_id);
+                        var curr_rotation = getRotation(dial_token.get('rotation'));
+                        if (Math.abs(curr_rotation - dial.rotation) >= 5) {
+                            all_dialed = false;
+                            dialed = false;
+                        }
+                        dial_token.set({aura2_radius: '0.25', aura2_color: (dialed ? '#00cc00' : '#cc0000')});
+                        if (!dialed && dial.dial_id == token.get('id') && triggeredTrap(door, ['Misdial'])) executeTrap(door, initCap(door.label['dial']) + ' Mover');
+                    });
+                    if (all_dialed) {
+                        door.condition = 'Unlocked';
+                        _.each(door.dials, function (dial) {
+                            var dial_token = getObj('graphic', dial.dial_id);
+                            dial_token.set({aura2_radius: ''});
+                        });
+                        showDialog('Unlocked', responses[randomInteger(_.size(responses))-1] );
+                        if (triggeredTrap(door, ['Unlock'])) executeTrap(door, initCap(door.label['dial']) + ' Mover');
+                    } else if (triggeredTrap(door, ['All-Misdial'])) executeTrap(door, initCap(door.label['dial']) + ' Mover');
+                }
+            }
         }
     },
 
     registerEventHandlers = function () {
 		on('chat:message', handleInput);
         on('change:graphic', handleMove);
+        on('change:graphic:rotation', handleRotation);
 	};
 
     return {
