@@ -108,9 +108,18 @@ The master door *must* be Unlocked to operate any secondary doors. If it is not,
 
 You can create a door that is trapped by adding data to the "Open" door token before [door creation](#door-creation). Every trap has a trigger, a Disable DC, and a trap effect. This information goes into the Open token's first Bar 1, Bar 2, and GM Notes fields, respectively, and are highlighted below.
 
+|  | Current | Max |
+| ---- |:----:|:----:|
+| Bar 1 | Trigger |  |
+| Bar 2 | Disable DC |  |
+
+| GM Notes |
+| ---- |
+| Trigger Effect |
+
 Most traps must be manually reset once they have been triggered, while others do not need to be reset or have a mechanism that automatically resets the trap. Once your trapped door is created, you will be able to tell DoorMaster from the [Status window](#door-status) whether the trap should be automatically reset after it gets triggered. The default is Off. You can also reset the trap manually in the Status window.
 
-Some traps may render a door unusable once triggered, either because damage to the door or other factors. From the Status window, you can set whether triggering the effect will "break" the door. The default is Off. Note that if auto reset is on, this function will be disabled.
+Some traps may render a door unusable once triggered, either because of damage to the door or other factors. From the Status window, you can set whether triggering the effect will "break" the door. The default is Off. Note that if auto reset is on, this function will be disabled.
 
 You can also provide an optional token named "Trap" to give a graphic representation of the trap after the effect has been triggered. This may be a blade, spike pit, soot from an explosion, a blast of fire, etc. If the trap auto reset option (above) is on, this token will be shown for about 1.5 seconds and then disappear.
 
@@ -123,9 +132,9 @@ A trigger is an action the player takes on the door that sets off the trap's eff
 - **Touch** - Any time a door is touched. This trigger is set off by **any** use of the Use, Pick, Break, _or Disable_ buttons and applies to all door States except Broken. If not using a [Lock token](#lock-tokens), using the Key button on the door will also trigger the trap.
 
   Note: This trigger supersedes **all** interactions. It is highly recommended to keep the trap reset function off (see above) when using this trigger.
-- **Pick** - Whenever is door's lock is picked, _whether or not_ the attempt is successful. Lockpicking traps only trigger when the actual attempt is made, so players will go through the entire decision process until the Pick Lock button is executed for the selected character.
+- **Pick** - Whenever is door's lock is picked, _whether or not_ the attempt is successful. Lockpicking traps only trigger when the actual attempt is made, so players will go through the entire [decision process](#doormaster-characters) until the Pick Lock button is executed for the selected character.
 - **Fail-Pick** - When an attempt to pick a lock fails. Successful attempts will not trip this trigger.
-- **Unlock** - When a door is unlocked, either by successfully picking the lock, or by using _any other means_.
+- **Unlock** - When a door is unlocked, either by successfully picking the lock or by using _any other means_.
 - **Wrong-Code** - When using a [Key](#keyed-doors) and the wrong passcode is given.
 - **Misdial** - When a single [Dial](#dials) is incorrectly rotated. This _will not_ trigger if other Dials remain in an incorrect rotation.
 - **All-Misdial** - When any Dial is incorrectly rotated. If multiple Dials are in use and the trap reset function is on, the trap will trigger until _every_ Dial is rotated to the correct position.
@@ -141,9 +150,9 @@ The Disable DC is used when a character attempts to disable the trap. If no DC i
 
 ### Trap Effect
 
-The trap effect is provided in the Open token's GM Notes field. You can give as much information as you wish here, depending on your trap and what should happen once it's triggered: darts flying out of the wall, a blade slicing out, ceiling drops, etc. An alternative option, particularly for traditional traps, is to use a [roll template](https://roll20.zendesk.com/hc/en-us/articles/360037257334-How-to-Make-Roll-Templates). This allows you to provide a melee or magical attack dialog with rolled damage, saving throw links/buttons and any other information you like that matches a familiar format.
+The trap effect is provided in the Open token's GM Notes field. You can give as much information as you wish here, depending on your trap and what should happen once it's triggered: darts flying out of the wall, a blade slicing out, ceiling drops, etc. An alternative option is to use a [roll template](https://roll20.zendesk.com/hc/en-us/articles/360037257334-How-to-Make-Roll-Templates). This allows you to provide a melee or magical attack dialog with rolled damage, saving throw links/buttons and any other information you like that matches a familiar format.
 
-If you wish to use the name of the character who triggered the trap in your effect description, places where you would use `@{selected|character_name}` or `@{target|character_name}` in a roll template, use `[WHO]` as a name placeholder and DoorMaster will substitute it with the name of the character. If the script cannot determine which character is using the door, they will simply be called "Victim".
+If you wish to use the name of the character who triggered the trap in your effect description - places where you would use `@{selected|character_name}` or `@{target|character_name}` in a roll template, for instance - use `[WHO]` as a name placeholder and DoorMaster will substitute it with the name of the character. If the script cannot determine which character is using the door, they will simply be called "Victim".
 
 If not using a roll template, you can still provide die roll expressions that will be executed whenever the trap is triggered. In your effect description, surround your die expression in @ signs, i.e. `@1d8+2@`. You may use as many die expressions as you want and each will be evaluated separately. You **should not** use @ signs for any other purpose or it will give unintended results.
 
