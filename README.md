@@ -1,6 +1,6 @@
 # DoorMaster
 
-> **Update for 4.3:** DoorMaster is now available for use with the 5th Edition OGL sheet! Plus, it can now recognize the Portable Ram when trying to break down doors (see [below](#skills)), and provides a way to locate switch and lock tokens with a ping.
+> **Update for 4.3:** DoorMaster is now available for use with the 5th Edition OGL sheet! Plus, it can now recognize the Portable Ram when trying to break down doors (see [below](#skill-checks)), and provides a way to locate switch and lock tokens with a ping.
 
 This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. You have the option to lock all related tokens to prevent them from accidentally being moved.
 
