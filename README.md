@@ -1,10 +1,10 @@
 # DoorMaster
 
-> **Update for 4.2:** Introducing [Dials](#dials) and [Tiles](#tiles)! There is also a new [trigger](#triggers) for when a player gives the wrong passcode.
+> **Update for 4.3:** DoorMaster is now available for use with the 5th Edition OGL sheet! Plus, it can now recognize the Portable Ram when trying to break down doors (see [below](#skills)), and provides a way to locate switch and lock tokens with a ping.
 
 This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. You have the option to lock all related tokens to prevent them from accidentally being moved.
 
-DoorMaster is currently only for use with the [5e Shaped Sheet](http://github.com/mlenser/roll20-character-sheets/tree/master/5eShaped).
+DoorMaster is for use with the [5e Shaped Sheet](http://github.com/mlenser/roll20-character-sheets/tree/master/5eShaped) and the D&D 5th Edition OGL Sheet.
 
 ## Table of Contents
 - [Door Creation](#door-creation)
@@ -18,6 +18,8 @@ DoorMaster is currently only for use with the [5e Shaped Sheet](http://github.co
   - [Triggers](#triggers)
   - [Disable DC](#disable-dc)
   - [Trap Effect](#trap-effect)
+- [Skill Checks](#skill-checks)
+  - [Tools](#tools)
 - [Dials](#dials)
 - [Tiles](#tiles)
 - [DoorMaster Characters](#doormaster-characters)
@@ -155,6 +157,21 @@ The trap effect is provided in the Open token's GM Notes field. You can give as 
 If you wish to use the name of the character who triggered the trap in your effect description - places where you would use `@{selected|character_name}` or `@{target|character_name}` in a roll template, for instance - use `[WHO]` as a name placeholder and DoorMaster will substitute it with the name of the character. If the script cannot determine which character is using the door, they will simply be called "Victim".
 
 If not using a roll template, you can still provide die roll expressions that will be executed whenever the trap is triggered. In your effect description, surround your die expression in @ signs, i.e. `@1d8+2@`. You may use as many die expressions as you want and each will be evaluated separately. You **should not** use @ signs for any other purpose or it will give unintended results.
+
+## Skill Checks
+
+When a character [attempts](#doormaster-characters) to pick a lock, break down a door, or disable a trap, they will be provided a number of options. These are designed to accommodate the greatest number of game rules and the GM will need to announce which one(s) the players can use. The options provided are:
+1. Two sets of [tools](#tools) are relevant to these tasks: Thieves' Tools and the Portable Ram. As they are most the specific and the most likely "GM approved" option, one of these tools sits at the top of the list.
+2. The skill closest to relevant use for the task will be provided. For Dexterity-based tasks, this skill is Sleight of Hand skill. Strength-based tasks use Athletics. If the character is proficient in the skill, that bonus is included in the attempt.
+3. The base attribute bonus corresponding to the skill is the final option. Lock picking and trap disabling are Dexterity-based, and door breaking is Strength-based.
+
+### Tools
+
+In order to use Thieves' Tools or the Portable Ram, you must add them to the character sheet in a way that is not simply sitting in inventory. This process differs depending on the sheet you are using for your game.
+
+For the Shaped sheet, you will add these tools as custom Skills, choosing the attribute on which they are based: Dexterity for thieves' tools and Strength for portable ram. Indicate whether or not the character has proficiency with the tool. Setting this skill to be automatically at advantage is not detected by the script and will still be selected in the dialog. Note that the script will _add the +4 bonus for the ram for you_, since the sheet does not allow modifiers to skills.
+
+For the OGL sheet, the thieves' tools and portable ram are added to the Tool Proficiencies & Custom Skills section. Select the corresponding attribute, and for the portable ram you can add the +4 modifier. There is no way to turn off proficiency for a tool, so if you allow use of non-proficient tools you can change the modifier to compensate. Regardless of the mod you add, the script will attribute 4 points out of the total roll modifier to the ram when it breaks down the numbers for roll results. For example: If the character's strength bonus is 2, this gives a total of 4 including the proficiency bonus. You can set the mod for the ram to 2 instead of 4 in order to compensate for proficiency. DoorMaster will give the roll result as `2[str] + 4[portable ram]`. Note that the thieves' tools do not imply a bonus, but you can still use the modifier to compensate for proficiency.
 
 ## Dials
 

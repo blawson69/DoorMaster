@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.2',
-    timestamp = 1583344966739,
+    var version = '4.3',
+    timestamp = 1583621942496,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -111,6 +111,11 @@ var DoorMaster = DoorMaster || (function () {
 					case 'link':
 						if (playerIsGM(msg.playerid)) {
 							commandLinkDoors(msg);
+						}
+						break;
+					case 'ping':
+						if (playerIsGM(msg.playerid)) {
+							commandPingToken(msg);
 						}
 						break;
 					case 'purge':
@@ -1222,16 +1227,16 @@ var DoorMaster = DoorMaster || (function () {
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
             message += '<b>Break DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --break-dc|?{Break DC|' + door.breakDC + '}" title="Change break DC">' + door.breakDC + '</a><br>';
 
-            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal ' + door.label['switch'] + ' to players">Hidden</a>' : 'Visible')) + '<br>';
+            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal ' + door.label['switch'] + ' to players">Hidden</a>' : 'Visible') + ' <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.switch_id + '" title="Ping switch token">📍</a>') + '<br>';
             if (typeof door.switch_id != 'undefined') message += '<b>Switch Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-switch|?{Label|' + door.label['switch'] + '}" title="Change switch label">' + door.label['switch'] + '</a></p>';
 
             // Keyed doors
             if (door.has_key) {
                 message += '<hr style="margin: 4px 12px;"><p>';
                 if (typeof door.lock_id != 'undefined') {
-                    message += '<b>External Lock:</b> ' + (door.lock_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --show-lock" title="Allow players to use lock">Enable Lock</a>' : 'Lock enabled') + '<br>';
+                    message += '<b>External Lock:</b> ' + (door.lock_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --show-lock" title="Allow players to use lock">Hidden</a>' : 'Enabled') + '  <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.lock_id + '" title="Ping lock token">📍</a><br>';
                 } else {
-                    message += '<b>Keyed:</b> ' + (door.key_char_id == state['DoorMaster'].doorCharID ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --keyhole" title="Allow players to use key">Enable key</a>' : 'Key enabled') + '<br>';
+                    message += '<b>Key:</b> ' + (door.key_char_id == state['DoorMaster'].doorCharID ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --keyhole" title="Allow players to use key">Disabled</a>' : 'Enabled') + '<br>';
                 }
                 message += '<b>Key Reset:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-key-reset" title="Turn key reset ' + (door.key_reset ? 'OFF' : 'ON') + '">' + (door.key_reset ? 'ON' : 'OFF') + '</a><br>';
                 message += '<b>Passphrase:</b> <i>' + door.lock_passphrase + '</i> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door status ' + door.id + ' --passphrase|?{Passphrase|' + door.lock_passphrase + '}" title="Change lock passphrase">&Delta;</a><br>';
@@ -1280,13 +1285,28 @@ var DoorMaster = DoorMaster || (function () {
         } else showDialog('Door Status Error', 'Invalid ID.', 'GM');
     },
 
+    commandPingToken = function (msg) {
+        var parms = msg.content.split(/\s+/i);
+        if (parms[2] && parms[2] != '') {
+            var token = getObj('graphic', parms[2]);
+            if (token) {
+                var gm_ids = [], players = findObjs({type: 'player', online: true});
+                _.each(players, function (player) {
+                    if (playerIsGM(player.get('id'))) gm_ids.push(player.get('id'));
+                });
+                sendPing(token.get('left'), token.get('top'), token.get('pageid'), null, false, gm_ids);
+            } else showDialog('Ping Error', 'Token does not exist.', 'GM');
+        } else showDialog('Ping Error', 'Token ID missing.', 'GM');
+    },
+
     // Get all player controlled characters that are not "utility characters"
     getCharsFromPlayerID = function (player_id) {
         var chars = findObjs({type: 'character', archived: false});
         chars = _.filter(chars, function (char) {
             var controllers = char.get('controlledby').split(',');
-            var level = getAttrByName(char.get('id'), 'level', 'current') || '0';
-            return (_.find(controllers, function (x) { return x == player_id; }) && parseInt(level) > 0);
+            var str_attr = findObjs({type: 'attribute', characterid: char.get('id'), name: 'strength'}, {caseInsensitive: true});
+            var str = (_.size(str_attr) > 0) ? str_attr[0].get('current') : 0;
+            return (_.find(controllers, function (x) { return x == player_id; }) && parseInt(str) > 0);
         });
         return chars;
     },
@@ -1304,28 +1324,54 @@ var DoorMaster = DoorMaster || (function () {
 
     getSkills = function (char_id, attribute = 'DEX') {
         var retSkills = '', skills = [];
+
         // Give the base attribute mod, just in case
         if (attribute == 'DEX') {
-            var dex_mod = getAttrByName(char_id, 'dexterity_mod_with_sign', 'current') || '0';
+            var dex_mod = getAttrByName(char_id, (isShapedSheet() ? 'dexterity_mod_with_sign' : 'dexterity_mod'), 'current') || '0';
             skills.push({name: 'Dexterity', mod: dex_mod});
         } else {
-            var str_mod = getAttrByName(char_id, 'strength_mod_with_sign', 'current') || '0';
+            var str_mod = getAttrByName(char_id, (isShapedSheet() ? 'strength_mod_with_sign' : 'strength_mod'), 'current') || '0';
             skills.push({name: 'Strength', mod: str_mod});
         }
 
         var charAttrs = findObjs({type: 'attribute', characterid: char_id}, {caseInsensitive: true});
-        var skillsForIDs = _.filter(charAttrs, function (attr) { return (attr.get('name').match(/^repeating_skill_(.+)_ability$/) !== null && attr.get('current') == attribute); });
-        _.each(skillsForIDs, function (skill) {
-            var skill_id = skill.get('name').replace(/^repeating_skill_([^_]+)_ability$/, '$1');
-            var tmp_name = getAttrByName(char_id, 'repeating_skill_' + skill_id + '_name', 'current');
-            // Filter out known irrelevant skills
-            if ((tmp_name != 'Acrobatics' && tmp_name != 'Stealth' && attribute == 'DEX') || attribute == 'STR') {
-                var tmp_mod = getAttrByName(char_id, 'repeating_skill_' + skill_id + '_total_with_sign', 'current') || '0';
-                skills.push({name: tmp_name, mod: tmp_mod});
+        if (isShapedSheet()) {
+            var skillsForIDs = _.filter(charAttrs, function (attr) { return (attr.get('name').match(/^repeating_skill_(.+)_ability$/) !== null && attr.get('current') == attribute); });
+            _.each(skillsForIDs, function (skill) {
+                var skill_id = skill.get('name').replace(/^repeating_skill_([^_]+)_ability$/, '$1');
+                var tmp_name = getAttrByName(char_id, 'repeating_skill_' + skill_id + '_name', 'current');
+                // Filter out known irrelevant skills
+                if (((tmp_name.match(/^thieve('s|s'|s)\s+tools$/i) || tmp_name == 'Sleight of Hand') && attribute == 'DEX')
+                    || ((tmp_name.match(/^portable\s+ram$/i) || tmp_name == 'Athletics') && attribute == 'STR')) {
+                    var tmp_mod = getAttrByName(char_id, 'repeating_skill_' + skill_id + '_total_with_sign', 'current') || '0';
+                    if (tmp_name.match(/^portable\s+ram$/i)) tmp_mod = parseInt(tmp_mod) + 4; // Shaped sheet cannot add bonus or mod to skills
+                    skills.push({name: tmp_name, mod: tmp_mod});
+                }
+            });
+        } else { //OGL sheet
+            if (attribute == 'STR') {
+                var ath_mod = getAttrByName(char_id, 'athletics_bonus', 'current') || '0';
+                skills.push({name: 'Athletics', mod: ath_mod});
+                var pRam = _.find(charAttrs, function (attr) { return (attr.get('name').match(/^repeating_tool_(.+)_toolname$/) !== null && attr.get('current').match(/^portable\s+ram$/i) != null); });
+                if (pRam) {
+                    var skill_id = pRam.get('name').replace(/^repeating_tool_([^_]+)_toolname$/, '$1');
+                    var tool_mod = getAttrByName(char_id, 'repeating_tool_' + skill_id + '_toolbonus', 'current') || '0';
+                    skills.push({name: 'Portable Ram', mod: tool_mod});
+                }
+            } else {
+                var soh_mod = getAttrByName(char_id, 'sleight_of_hand_bonus', 'current') || '0';
+                skills.push({name: 'Sleight of Hand', mod: soh_mod});
+                var tTools = _.find(charAttrs, function (attr) { return (attr.get('name').match(/^repeating_tool_(.+)_toolname$/) !== null && attr.get('current').match(/^thieve('s|s'|s)\s+tools$/i) != null); });
+                if (tTools) {
+                    var skill_id = tTools.get('name').replace(/^repeating_tool_([^_]+)_toolname$/, '$1');
+                    var tool_mod = getAttrByName(char_id, 'repeating_tool_' + skill_id + '_toolbonus', 'current') || '0';
+                    skills.push({name: 'Thieves\' Tools', mod: tool_mod});
+                }
             }
-        });
+        }
 
         // Return string for query
+        skills = skills.reverse();
         _.each(skills, function (skill) { retSkills += '|' + skill.name + ',' + skill.mod + '::' + skill.name.replace(/\s/g, '~'); });
         return retSkills;
     },
@@ -1524,8 +1570,14 @@ var DoorMaster = DoorMaster || (function () {
 
         end_result.final = end_result.base + end_result.mod;
         var mod = (end_result.mod > 0 ? '+ ' + end_result.mod : (end_result.mod < 0 ? '- ' + Math.abs(end_result.mod) : '+ 0'));
-        end_result.formula = (end_result.adv_dis != '0' ? '2' : '1') + 'd20' + ((end_result.adv_dis == '+1') ? 'kh1' : (end_result.adv_dis == '-1' ? 'kl1' : ''))
-            + ' ' + mod + '[' + end_result.skill.toLowerCase() + '] = (' + (end_result.adv_dis != '0' ? end_result.roll1 + '+' +  end_result.roll2 : end_result.base) + ')'
+
+        // Accomodate bonus from portable ram
+        var ram_mod = end_result.mod - 4;
+        var str_only = (ram_mod > 0 ? '+ ' + ram_mod : (ram_mod < 0 ? '- ' + Math.abs(ram_mod) : '+ 0'));
+
+        end_result.formula = (end_result.adv_dis != '0' ? '2' : '1') + 'd20' + ((end_result.adv_dis == '+1') ? 'kh1' : (end_result.adv_dis == '-1' ? 'kl1' : ''));
+        end_result.formula += ' ' + (end_result.skill.match(/^portable(\s+)ram$/i) ? str_only + '[str] + 4[portable ram' : mod + '[' + end_result.skill.toLowerCase());
+        end_result.formula += '] = (' + (end_result.adv_dis != '0' ? end_result.roll1 + '+' +  end_result.roll2 : end_result.base) + ')'
             + mod.replace(/\s/g, '') + (end_result.adv_dis != '0' ? ' = ' + end_result.base + mod.replace(/\s/g, '') : '');
         return end_result;
     },
@@ -1569,14 +1621,13 @@ var DoorMaster = DoorMaster || (function () {
         return {top: Math.round(top), left: Math.round(left)};
     },
 
-    detectSheet = function () {
-        var sheet = 'Unknown', char = findObjs({type: 'character'})[0];
+    isShapedSheet = function () {
+        var is_shaped = false, char = findObjs({type: 'character'})[0];
         if (char) {
             var charAttrs = findObjs({type: 'attribute', characterid: char.get('id')}, {caseInsensitive: true});
-            if (_.find(charAttrs, function (x) { return x.get('name') == 'character_sheet' && x.get('current').search('Shaped') != -1; })) sheet = '5e Shaped';
-            if (_.find(charAttrs, function (x) { return x.get('name').search('mancer') != -1; })) sheet = '5th Edition OGL';
+            if (_.find(charAttrs, function (x) { return x.get('name') == 'character_sheet' && x.get('current').search('Shaped') != -1; })) is_shaped = true;
         }
-        return sheet;
+        return is_shaped;
     },
 
     processGMNotes = function (notes) {
