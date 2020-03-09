@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.3',
-    timestamp = 1583621942496,
+    var version = '4.3.1',
+    timestamp = 1583769056418,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -1093,7 +1093,11 @@ var DoorMaster = DoorMaster || (function () {
         } else showDialog('Status Error', 'You must select a door or switch token.', 'GM');
 
         if (door) {
+            // Retrofit old doors when neccessary
             if (typeof door.label == 'undefined') door.label = {door: 'door', switch: 'switch', dial: 'dial', tile: 'tile'};
+            if (typeof door.switch_hidden == 'undefined' || typeof door.switch_hidden == 'boolean') door.switch_hidden = {original: (typeof door.switch_hidden == 'boolean' ? door.switch_hidden : false), current: (typeof door.switch_hidden == 'boolean' ? door.switch_hidden : false)};
+            if (typeof door.lock_hidden == 'undefined' || typeof door.lock_hidden == 'boolean') door.lock_hidden = {original: (typeof door.lock_hidden == 'boolean' ? door.lock_hidden : false), current: (typeof door.lock_hidden == 'boolean' ? door.lock_hidden : false)};
+
             var actions = parms[3] ? parms[3].split('|') : [];
             switch (actions[0]) {
                 case '--token-lock':
@@ -1227,7 +1231,7 @@ var DoorMaster = DoorMaster || (function () {
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
             message += '<b>Break DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --break-dc|?{Break DC|' + door.breakDC + '}" title="Change break DC">' + door.breakDC + '</a><br>';
 
-            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal ' + door.label['switch'] + ' to players">Hidden</a>' : 'Visible') + ' <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.switch_id + '" title="Ping switch token">📍</a>') + '<br>';
+            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal ' + door.label['switch'] + ' to players">Hidden</a>' : 'Visible') + ' <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + (door.open && typeof door.switch2_id != 'undefined' ? door.switch2_id : door.switch_id) + '" title="Ping switch token">📍</a>') + '<br>';
             if (typeof door.switch_id != 'undefined') message += '<b>Switch Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-switch|?{Label|' + door.label['switch'] + '}" title="Change switch label">' + door.label['switch'] + '</a></p>';
 
             // Keyed doors
