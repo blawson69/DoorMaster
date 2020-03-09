@@ -1,7 +1,5 @@
 # DoorMaster
 
-> **Update for 4.3:** DoorMaster is now available for use with the 5th Edition OGL sheet! Plus, it can now recognize the Portable Ram when trying to break down doors (see [below](#skill-checks)), and provides a way to locate switch and lock tokens with a ping.
-
 This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. You have the option to lock all related tokens to prevent them from accidentally being moved.
 
 DoorMaster is for use with the [5e Shaped Sheet](http://github.com/mlenser/roll20-character-sheets/tree/master/5eShaped) and the D&D 5th Edition OGL Sheet.
@@ -265,6 +263,7 @@ The Configuration Menu allows you to change these DoorMaster options:
 - **Trap Disabling Fumbles** - You can choose to allow fumbles at trap disabling attempts, which will trigger the trap instead of disabling it. Default is On.
 - **Show Results** - You can choose to show players the results of their skill rolls. If turned off, players will only see a "success" or "fail" dialog. If on, this dialog will also include the roll result, the skill they used, and whether or not they rolled at Advantage or Disadvantage. Default is Off. These results are always provided to the GM if they are not shown publicly to the players.
 - **Door Interactions** - You can have all door interactions whispered to the players instead of being public. Note that trap effects will always been public, and character/skill decisions (except for the final result) will always be whispered. Default is Off.
+- **Obfuscate States** - By default the [State](#door-states) of the door is obfuscated so players do not definitively know what state the door is in. Turning this feature off will show the door's State in the title of the feedback dialog to players.
 
 The Configuration Menu also tells you how many doors you've created so far, and gives a button for [creating a door](#door-creation) or viewing a selected door's [status](#door-status).
 

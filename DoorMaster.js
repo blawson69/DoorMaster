@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.3.1',
-    timestamp = 1583769056418,
+    var version = '4.4',
+    timestamp = 1583777323400,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -46,6 +46,7 @@ var DoorMaster = DoorMaster || (function () {
         if (typeof state['DoorMaster'].useAura == 'undefined') state['DoorMaster'].useAura = true;
         if (typeof state['DoorMaster'].doorAuraColor == 'undefined') state['DoorMaster'].doorAuraColor = '#666666';
         if (typeof state['DoorMaster'].hiddenAuraColor == 'undefined') state['DoorMaster'].hiddenAuraColor = '#99cc99';
+        if (typeof state['DoorMaster'].obfuscateState == 'undefined') state['DoorMaster'].obfuscateState = true;
         if (state['DoorMaster'].doorKeyedCharID == '' || state['DoorMaster'].switchCharID == '' || state['DoorMaster'].lockCharID == ''
             || state['DoorMaster'].trapCharID == '' || state['DoorMaster'].trapKeyedCharID == '') state['DoorMaster'].showInit = true;
         runUpgrades();
@@ -58,7 +59,8 @@ var DoorMaster = DoorMaster || (function () {
 		}
 
         if (createDoorChars()) {
-            showDialog('Welcome', 'Characters have been created for use by the DoorMaster script. <i>Do not</i> rename or delete them.<div style=\'' + styles.buttonWrapper + '\'><a style=\'' + styles.button + '\' href="!door config">Show config</a></div>', 'GM');
+            var macro = createMacro();
+            showDialog('Welcome', 'Characters have been created for use by the DoorMaster script. <i>Do not</i> rename or delete them.' + (macro ? ' A macro has also been created to give easy acces to the Status, Create, and Destroy functions.' : '') + '<div style=\'' + styles.buttonWrapper + '\'><a style=\'' + styles.button + '\' href="!door config">Show config</a></div>', 'GM');
             state['DoorMaster'].showInit = false;
         }
     },
@@ -118,6 +120,11 @@ var DoorMaster = DoorMaster || (function () {
 							commandPingToken(msg);
 						}
 						break;
+					case 'macro':
+						if (playerIsGM(msg.playerid)) {
+							createMacro(msg.content);
+						}
+						break;
 					case 'purge':
 						if (playerIsGM(msg.playerid)) {
 							purgeOldDoors(msg);
@@ -145,6 +152,7 @@ var DoorMaster = DoorMaster || (function () {
             if (action[0] == 'trap-fumble-toggle') state['DoorMaster'].trapFumbles = !state['DoorMaster'].trapFumbles;
             if (action[0] == 'show-toggle') state['DoorMaster'].showPlayersRolls = !state['DoorMaster'].showPlayersRolls;
             if (action[0] == 'whisper-toggle') state['DoorMaster'].whisper = !state['DoorMaster'].whisper;
+            if (action[0] == 'obstate-toggle') state['DoorMaster'].obfuscateState = !state['DoorMaster'].obfuscateState;
         });
 
         if (err != '') {
@@ -165,23 +173,21 @@ var DoorMaster = DoorMaster || (function () {
         message += 'Enter a hexadecimal color value without the hash (#).<br>';
         message += '<div style=\'' + styles.buttonWrapper + '\'><a style="' + styles.button + '; background-color: ' + state['DoorMaster'].hiddenAuraColor + '; color: ' + getContrastColor(state['DoorMaster'].hiddenAuraColor) + '" href="!door config --hidden-color|&#63;&#123;Color&#124;' + state['DoorMaster'].hiddenAuraColor.substr(1) + '&#125;" title="Change the Hidden Door Indicator color">Change 🎨</a></div>';
 
-        message += '<hr style="margin: 4px 12px 8px;"><div style=\'' + styles.title + '\'>Fumbles:</div>';
+        message += '<hr style="margin: 4px 12px 8px;"><div style=\'' + styles.title + '\'>Fumbles</div>';
         message += '<b>Lock Picking:</b> <a style=\'' + styles.textButton + '\' href="!door config --fumble-toggle" title="Turn lock picking fumbles ' + (state['DoorMaster'].allowFumbles ? 'off' : 'on') + '">' + (state['DoorMaster'].allowFumbles ? 'ON' : 'OFF') + '</a><br>';
         message += 'On a natural 1, the lock will ' + (state['DoorMaster'].allowFumbles ? '' : '<i>not</i> ') + 'be rendered Disabled.<br><br>';
 
         message += '<B>Trap Disabling:</b> <a style=\'' + styles.textButton + '\' href="!door config --trap-fumble-toggle" title="Turn trap disabling fumbles ' + (state['DoorMaster'].trapFumbles ? 'off' : 'on') + '">' + (state['DoorMaster'].trapFumbles ? 'ON' : 'OFF') + '</a><br>';
-        message += 'On a natural 1, the trap will ' + (state['DoorMaster'].trapFumbles ? '' : '<i>not</i> ') + 'be triggered.<br><br>';
+        message += 'On a natural 1, the trap will ' + (state['DoorMaster'].trapFumbles ? '' : '<i>not</i> ') + 'be triggered.';
 
-        message += '<hr style="margin: 4px 12px 8px;"><div style=\'' + styles.title + '\'>Show Results: ' + (state['DoorMaster'].showPlayersRolls ? 'On' : 'Off') + '</div>';
-        message += 'Players will ' + (state['DoorMaster'].showPlayersRolls ? '' : '<i>not</i> ') + 'see the roll results of their lock picking and door breaking attempts.<br>';
-        message += '<a style=\'' + styles.textButton + '\' href="!door config --show-toggle">turn ' + (state['DoorMaster'].showPlayersRolls ? 'off' : 'on') + '</a><br><br>';
-
-        message += '<hr style="margin: 4px 12px 8px;"><div style=\'' + styles.title + '\'>Whisper Actions: ' + (state['DoorMaster'].whisper ? 'On' : 'Off') + '</div>';
-        message += 'Door interactions will ' + (state['DoorMaster'].whisper ? '' : '<i>not</i> ') + 'be whispered.<br>';
-        message += '<a style=\'' + styles.textButton + '\' href="!door config --whisper-toggle">turn ' + (state['DoorMaster'].whisper ? 'off' : 'on') + '</a><br><br>';
+        message += '<hr style="margin: 4px 12px 8px;"><div style=\'' + styles.title + '\'>Other Options</div>';
+        message += '<b>Show Results:</b> <a style=\'' + styles.textButton + '\' href="!door config --show-toggle" title="' + (state['DoorMaster'].showPlayersRolls ? 'Hide' : 'Show') + ' roll results to players">' + (state['DoorMaster'].showPlayersRolls ? 'ON' : 'OFF') + '</a><br>';
+        message += '<b>Whisper Actions:</b> <a style=\'' + styles.textButton + '\' href="!door config --whisper-toggle" title="Turn ' + (state['DoorMaster'].whisper ? 'OFF' : 'ON') + ' whispered door interaction dialog">' + (state['DoorMaster'].whisper ? 'ON' : 'OFF') + '</a><br>';
+        message += '<b>Obfuscate States:</b> <a style=\'' + styles.textButton + '\' href="!door config --obstate-toggle" title="Turn ' + (state['DoorMaster'].obfuscateState ? 'OFF' : 'ON') + ' door state obfuscation for players">' + (state['DoorMaster'].obfuscateState ? 'ON' : 'OFF') + '</a><br>';
 
         message += '<hr style="margin: 4px 12px 8px;">You have created ' + (_.size(state['DoorMaster'].doors) == 0 ? 'no doors yet' : (_.size(state['DoorMaster'].doors) == 1 ? '1 door' : _.size(state['DoorMaster'].doors) + ' doors')) + '.<br>';
-        message += '<div style=\'' + styles.buttonWrapper + '\'><a style="' + styles.button + ';" href="!door create" title="Create a new door with the selected tokens">Create Door</a> &nbsp; <a style="' + styles.button + ';" href="!door status" title="Show the status the selected token\'s door">Door Status</a></div><br>';
+
+        message += (_.size(findObjs({type: 'macro', name: 'DoorMaster'})) == 0 ? '<div style=\'' + styles.buttonWrapper + '\'><a style="' + styles.button + ';" href="!door macro config" title="Create macro for Status, Create, and Destroy commands">Create GM Macro</a></div>' : '<br>');
 
         message += '<p>See the <a style="' + styles.textButton + '" href="https://github.com/blawson69/DoorMaster">documentation</a> for complete instructions.</p>';
         showDialog('', message, 'GM');
@@ -494,8 +500,8 @@ var DoorMaster = DoorMaster || (function () {
                                 }
                                 break;
                             case 'Locked':
-                                title = 'Locked';
-                                message = (typeof door.lock_id == 'undefined' && typeof door.dials == 'undefined' && typeof door.tiles == 'undefined') ? 'You cannot open the ' + door.label['door'] + ' without a key... or try another method.' : '... yet there is no lock visible on the ' + door.label['door'] + '.';
+                                title = state['DoorMaster'].obfuscateState ? 'Unopened' : 'Locked';
+                                message = (typeof door.lock_id == 'undefined' && typeof door.dials == 'undefined' && typeof door.tiles == 'undefined') ? 'You cannot open the ' + door.label['door'] + ' without a key... or try another method.' : 'The ' + door.label['door'] + ' will not open, yet there is no lock visible.';
 
                                 if (typeof door.switch_id != 'undefined' && token.get('id') != door.switch_id && token.get('id') != door.switch2_id && action == 'open/close') {
                                     title = '', whispered = true;
@@ -572,7 +578,7 @@ var DoorMaster = DoorMaster || (function () {
                                     toggleDoorOpen(door);
                                     show_dialog = false;
                                 } else {
-                                    title = 'Lock Disabled';
+                                    title = state['DoorMaster'].obfuscateState ? 'Unsuccessful' : 'Lock Disabled';
                                     message = 'This ' + door.label['door'] + '\'s lock has been broken and cannot be picked, nor will a key work.';
                                     if (action == 'pick') message = 'This ' + door.label['door'] + '\'s lock has been broken and cannot be picked.' + (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this ' + door.label['door'] + '.' : ' Your attempt to pick it is futile.');
                                     if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
@@ -581,7 +587,7 @@ var DoorMaster = DoorMaster || (function () {
                                 }
                                 break;
                             case 'Barred':
-                                title = 'Barred';
+                                title = state['DoorMaster'].obfuscateState ? 'Unopened' : 'Barred';
                                 if (action == 'pick') message = 'You can lift the bar on this ' + door.label['door'] + '. No lock picking is neccessary.';
                                 if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
                                     message = 'The ' + door.label['switch'] + ' begins to move but cannot.';
@@ -596,7 +602,7 @@ var DoorMaster = DoorMaster || (function () {
                                 }
                                 break;
                             case 'Obstructed':
-                                title = 'Obstructed';
+                                title = state['DoorMaster'].obfuscateState ? 'Unopened' : 'Obstructed';
                                 message = 'This ' + door.label['door'] + ' seems to be blocked from the other side.';
                                 if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this ' + door.label['door'] + '.' : ' Your attempt to pick it is ineffectual.');
                                 if (action == 'break') message += ' You cannot hope to break through.';
@@ -609,8 +615,8 @@ var DoorMaster = DoorMaster || (function () {
                                 }
                                 break;
                             case 'Stuck':
-                                title = 'Stuck';
-                                message = 'This ' + door.label['door'] + ' is stuck shut and will not open easily.';
+                                title = state['DoorMaster'].obfuscateState ? 'Unopened' : 'Stuck';
+                                message = 'This ' + door.label['door'] + ' seems to be stuck and will not open easily.';
                                 if (action == 'pick') message += (typeof door.lock_id != 'undefined' ? ' Plus, there is no lock visible on this ' + door.label['door'] + '.' : ' Your attempt to pick it is inconceivable.');
                                 if (token.get('id') == door.switch_id || token.get('id') == door.switch2_id) {
                                     message = 'The ' + door.label['switch'] + ' begins to move but cannot.';
@@ -1650,6 +1656,16 @@ var DoorMaster = DoorMaster || (function () {
             html = html.join(/\n/);
         }
         return html;
+    },
+
+    createMacro = function (action = '') {
+        var macro = findObjs({type: 'macro', name: 'DoorMaster'});
+        if (_.size(macro) == 0) {
+            var gm = _.find(findObjs({type: 'player'}), function (char) { return playerIsGM(char.get('id')); });
+            createObj("macro", { name: 'DoorMaster', playerid: gm.get('id'), action: '!door ?{Choose|View Status,status|Create Door,create|Destroy Door,destroy}' });
+            if (action != '') commandConfig({content: '!door config'});
+            else return true;
+        } else return false;
     },
 
     runUpgrades = function () {
