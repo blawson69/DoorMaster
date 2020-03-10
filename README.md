@@ -1,6 +1,8 @@
 # DoorMaster
 
-This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. You have the option to lock all related tokens to prevent them from accidentally being moved.
+> **New in 4.5:** Added a case sensitivity toggle to the passphrases for [keyed doors](#keyed-doors), and enabled the ping function for Open and Closed tokens.
+
+This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, make trapped doors with a variety of triggers, use various puzzle-type methods for unlocking doors, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. All related tokens can be locked to prevent them from accidentally being moved by players.
 
 DoorMaster is for use with the [5e Shaped Sheet](http://github.com/mlenser/roll20-character-sheets/tree/master/5eShaped) and the D&D 5th Edition OGL Sheet.
 
@@ -81,7 +83,7 @@ Doors can have "keys" to unlock them. These are passphrases - passwords or sente
 - The passphrase will be displayed, which you can change at any time.
 - You can choose to remove the "Key" token action whenever the door is unlocked with the proper passphrase. By default this "Key Reset" function is OFF, allowing players to *lock* the door with the passphrase as well.
 
-Passphrases are case-sensitive and should be alphanumeric. You may use punctuation and spaces, but avoid characters used in URLs (colons, forward slashes, etc.). Passphrases do not have to be unique, but remember that entering a non-unique passphrase on one door will _not_ unlock other doors with the same passphrase.
+Passphrases are case-sensitive by default and should be alphanumeric. You may use punctuation and spaces, but avoid characters used in URLs (colons, forward slashes, etc.). Passphrases do not have to be unique, but remember that entering a non-unique passphrase on one door will _not_ unlock other doors with the same passphrase. You can turn off case sensitivity in the Status window.
 
 ### Lock Tokens
 
@@ -159,7 +161,7 @@ If not using a roll template, you can still provide die roll expressions that wi
 ## Skill Checks
 
 When a character [attempts](#doormaster-characters) to pick a lock, break down a door, or disable a trap, they will be provided a number of options. These are designed to accommodate the greatest number of game rules and the GM will need to announce which one(s) the players can use. The options provided are:
-1. Two sets of [tools](#tools) are relevant to these tasks: Thieves' Tools and the Portable Ram. As they are most the specific and the most likely "GM approved" option, one of these tools sits at the top of the list.
+1. Two sets of [tools](#tools) are relevant to these tasks: Thieves' Tools and the Portable Ram. As they are most the specific and the most likely "GM approved" option, one of these tools sits at the top of the list, if present.
 2. The skill closest to relevant use for the task will be provided. For Dexterity-based tasks, this skill is Sleight of Hand skill. Strength-based tasks use Athletics. If the character is proficient in the skill, that bonus is included in the attempt.
 3. The base attribute bonus corresponding to the skill is the final option. Lock picking and trap disabling are Dexterity-based, and door breaking is Strength-based.
 
@@ -203,7 +205,7 @@ New [triggers](#triggers) have been added to let you to set your trap to trigger
 
 DoorMaster characters are created automatically when you first install the script, and are set on the appropriate tokens to allow players to interact with them. These characters are essential for player interaction and *must not be deleted.* Deleted DoorMaster characters will be re-created if the sandbox is restarted, but doors connected to the old character will lose functionality.
 
-The "DoorMaster" character is used for all visible doors and has four token action buttons:
+The "DoorMaster" characters are used for all visible doors and provide some combination of the following token action buttons:
 - **Use** - Use a door or switch. This should be the first button used. It will open and close Unlocked doors, and provides feedback on the State of the door if it cannot be opened.
 - **Pick** - This button begins the steps to make an attempt to pick a lock. If the player controls more than one character, they will be asked to select which character is making the attempt. The list of characters will only include characters to which the player has specifically been assigned control, i.e. no character with the "All Players" assignment.
 
@@ -217,19 +219,11 @@ The "DoorMaster" character is used for all visible doors and has four token acti
    If the attempt to force the door open succeeds, there is a 20% chance to break the door (setting it to the Broken [State](#door-states)) completely, rendering the door useless. If a Locked door is forced open, there is also a 10% chance to destroy the lock (Disabled).
 - **Help** - Shows a help menu that explains the other token action buttons.
 
-The "DoorMaster Keyed" character adds the following token action button:
 - **Key** - This button prompts the player to enter a passphrase. If the passphrase is correct, the door will be unlocked. If the [key reset function](#keyed-doors) is off, this button will also allow the door to be locked using the passphrase as well.
 
-The "DoorMaster Trapped" character adds the following token action button:
 - **Disable** - This button allows an attempt to disable a trap. If the player controls more than one character, they will be asked to select which character is making the attempt. A "Disable Trap" button will then appear to allow them to select the Dexterity skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to disable a trap.
 
  If enabled in [config](#configuration), a fumble at disabling a trap will trigger the trap.
-
-The "DoorMaster Trapped Keyed" character combines the functionality of the "DoorMaster Keyed" and "DoorMaster Trapped" in for doors that are both trapped and keyed.
-
-The "DoorMaster Switch" character is set on non-hidden switch tokens, and only provides the *Use* and *Help* buttons.
-
-The "DoorMaster Lock" character is set on non-hidden lock tokens, and provides the *Key*, *Pick*, and *Help* buttons.
 
 ## Door Status
 
@@ -254,18 +248,26 @@ You can see the stats for any door by using the `!door status` command with _any
 - How many [Tiles](#tiles) and/or Decoys, if any, are in use with the door
 - Whether the tokens are locked (lockable)
 
+You can also ping the door, switch and lock tokens to easily find those elements on a map that has many doors created.
+
 ## Configuration
 
 The Configuration Menu allows you to change these DoorMaster options:
 - **Door Auras** - You can use an aura to indicate to players that a door token can be interacted with. The default is "on" and the color is set to an unobtrusive medium grey. You can turn this feature off and on, and change the color.
+
 - **Hidden Door Indicator** - This is a aura used to show the GM a door that is Secret or Concealed. You cannot turn it off, but you can change the color.
+
 - **Lock Picking Fumbles** - You can choose to allow fumbles at lock picking attempts to disable the door's lock (Disabled), preventing it from being unlocked by key or more picking attempts. Default is On.
+
 - **Trap Disabling Fumbles** - You can choose to allow fumbles at trap disabling attempts, which will trigger the trap instead of disabling it. Default is On.
+
 - **Show Results** - You can choose to show players the results of their skill rolls. If turned off, players will only see a "success" or "fail" dialog. If on, this dialog will also include the roll result, the skill they used, and whether or not they rolled at Advantage or Disadvantage. Default is Off. These results are always provided to the GM if they are not shown publicly to the players.
+
 - **Door Interactions** - You can have all door interactions whispered to the players instead of being public. Note that trap effects will always been public, and character/skill decisions (except for the final result) will always be whispered. Default is Off.
+
 - **Obfuscate States** - By default the [State](#door-states) of the door is obfuscated so players do not definitively know what state the door is in. Turning this feature off will show the door's State in the title of the feedback dialog to players.
 
-The Configuration Menu also tells you how many doors you've created so far, and gives a button for [creating a door](#door-creation) or viewing a selected door's [status](#door-status).
+The Configuration Menu also tells you how many doors you've created so far, and will give a button for generating the DoorMaster macro if it has been accidentally deleted. This macro provides quick access to the oft-used [Status](#door-status), [Create](#door-creation), and [Destroy](#destroying-doors) commands.
 
 ## Destroying Doors
 

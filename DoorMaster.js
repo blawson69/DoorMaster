@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.4',
-    timestamp = 1583777323400,
+    var version = '4.5',
+    timestamp = 1583869205925,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -297,6 +297,7 @@ var DoorMaster = DoorMaster || (function () {
             if (new_door.condition == 'Keyed' || typeof new_door.lock_id != 'undefined') {
                 new_door.condition = 'Locked';
                 new_door.has_key = true;
+                new_door.case_sensitive = true;
                 new_door.key_char_id = state['DoorMaster'].doorCharID;
                 if (new_door.lock_passphrase == '') new_door.lock_passphrase = 'Open sesame';
             }
@@ -925,8 +926,10 @@ var DoorMaster = DoorMaster || (function () {
                         return;
                     }
 
+                    if (typeof door.case_sensitive == 'undefined') door.case_sensitive = true; // Retrofit
                     var chars = getCharsFromPlayerID(msg.playerid);
-                    if (passphrase == door.lock_passphrase) {
+                    var correctPassphrase = door.case_sensitive ? passphrase == door.lock_passphrase : passphrase.toLowerCase() == door.lock_passphrase.toLowerCase();
+                    if (correctPassphrase) {
                         switch (door.condition) {
                             case 'Locked':
                                 door.condition = 'Unlocked';
@@ -1100,6 +1103,7 @@ var DoorMaster = DoorMaster || (function () {
 
         if (door) {
             // Retrofit old doors when neccessary
+            if (typeof door.case_sensitive == 'undefined') door.case_sensitive = false;
             if (typeof door.label == 'undefined') door.label = {door: 'door', switch: 'switch', dial: 'dial', tile: 'tile'};
             if (typeof door.switch_hidden == 'undefined' || typeof door.switch_hidden == 'boolean') door.switch_hidden = {original: (typeof door.switch_hidden == 'boolean' ? door.switch_hidden : false), current: (typeof door.switch_hidden == 'boolean' ? door.switch_hidden : false)};
             if (typeof door.lock_hidden == 'undefined' || typeof door.lock_hidden == 'boolean') door.lock_hidden = {original: (typeof door.lock_hidden == 'boolean' ? door.lock_hidden : false), current: (typeof door.lock_hidden == 'boolean' ? door.lock_hidden : false)};
@@ -1196,6 +1200,10 @@ var DoorMaster = DoorMaster || (function () {
                     door.trap['break_door'] = !door.trap['break_door'];
                     alert = 'Trap will' + (door.trap['break_door'] ? ' now' : ' no longer') + ' break the door.';
                     break;
+                case '--toggle-case-sensitive':
+                    door.case_sensitive = !door.case_sensitive;
+                    alert = 'Passphrase is now case ' + (door.case_sensitive ? ' sensitive' : ' insensitive') + '.';
+                    break;
                 case '--label-door':
                     var label = msg.content.split(/\s*\|\s*/i);
                     if (label[1] && label[1].trim() != '') {
@@ -1231,25 +1239,26 @@ var DoorMaster = DoorMaster || (function () {
             }
 
             message += '<p>';
-            message += '<b>Condition:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set Condition|Unlocked|Locked|Barred|Obstructed|Stuck|Disabled}" title="Change condition">' + door.condition + '</a><br>';
+            message += '<b>Condition:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set Condition|Unlocked|Locked|Barred|Obstructed|Stuck|Disabled}" title="Change condition">' + door.condition + '</a> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.id + ' door" title="Ping door token">📍</a><br>';
             message += '<b>Visibility:</b> ' + (door.hidden ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-door" title="Reveal ' + door.label['door'] + ' to players">' + door.visibility + '</a>' : door.visibility) + '<br>';
             message += '<b>Door Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-door|?{Label|' + door.label['door'] + '}" title="Change door label">' + door.label['door'] + '</a><br>';
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
             message += '<b>Break DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --break-dc|?{Break DC|' + door.breakDC + '}" title="Change break DC">' + door.breakDC + '</a><br>';
 
-            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal ' + door.label['switch'] + ' to players">Hidden</a>' : 'Visible') + ' <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + (door.open && typeof door.switch2_id != 'undefined' ? door.switch2_id : door.switch_id) + '" title="Ping switch token">📍</a>') + '<br>';
+            message += '<b>Switch:</b> ' + (typeof door.switch_id == 'undefined' ? 'None' : (door.switch_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-switch" title="Reveal ' + door.label['switch'] + ' to players">Hidden</a>' : 'Visible') + ' <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.id + ' switch" title="Ping switch token">📍</a>') + '<br>';
             if (typeof door.switch_id != 'undefined') message += '<b>Switch Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-switch|?{Label|' + door.label['switch'] + '}" title="Change switch label">' + door.label['switch'] + '</a></p>';
 
             // Keyed doors
             if (door.has_key) {
                 message += '<hr style="margin: 4px 12px;"><p>';
                 if (typeof door.lock_id != 'undefined') {
-                    message += '<b>External Lock:</b> ' + (door.lock_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --show-lock" title="Allow players to use lock">Hidden</a>' : 'Enabled') + '  <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.lock_id + '" title="Ping lock token">📍</a><br>';
+                    message += '<b>External Lock:</b> ' + (door.lock_hidden['current'] ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --show-lock" title="Allow players to use lock">Hidden</a>' : 'Enabled') + '  <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.id + ' lock" title="Ping lock token">📍</a><br>';
                 } else {
                     message += '<b>Key:</b> ' + (door.key_char_id == state['DoorMaster'].doorCharID ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --keyhole" title="Allow players to use key">Disabled</a>' : 'Enabled') + '<br>';
                 }
                 message += '<b>Key Reset:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-key-reset" title="Turn key reset ' + (door.key_reset ? 'OFF' : 'ON') + '">' + (door.key_reset ? 'ON' : 'OFF') + '</a><br>';
                 message += '<b>Passphrase:</b> <i>' + door.lock_passphrase + '</i> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door status ' + door.id + ' --passphrase|?{Passphrase|' + door.lock_passphrase + '}" title="Change lock passphrase">&Delta;</a><br>';
+                message += '<b>Case Sensitive:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-case-sensitive" title="Turn case sensitivity ' + (door.case_sensitive ? 'off' : 'on') + ' for this passphrase">' + (door.case_sensitive ? 'YES' : 'NO') + '</a><br>';
                 message += '</p><hr style="margin: 4px 12px;">';
             }
 
@@ -1270,7 +1279,7 @@ var DoorMaster = DoorMaster || (function () {
                 if (door.trap['disable_after_trigger']) message += '<b>Break Door:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-trap-break" title="Turn ' + (door.trap['break_door'] ? 'OFF' : 'ON') + ' breaking the door when triggered">' + (door.trap['break_door'] ? 'ON' : 'OFF') + '</a><br>';
                 else message += '<b>Break Door:</b> <span style="cursor: help;" title="Trap cannot break the door while Auto Reset is on">' + (door.trap['break_door'] ? 'ON' : 'OFF') + '</span><br>';
 
-                effect = (effect.startsWith('&{template') ? effect.replace(/\{/g, '&#123;').replace(/\}/g, '&#125;') : effect.replace(/<[^>]+>/gi, ''));
+                effect = (effect.startsWith('&{template') ? effect.replace(/\{/g, '&#123;').replace(/\}/g, '&#125;') : effect.replace(/<[^>]+>/gi, '').replace(/\[/g, '&#91;').replace(/\]/g, '&#93;'));
                 message += '<b>Effect:</b><br>' + (effect.search('&#123;template') != -1 ? '<i>' : '') + effect.substr(0, 145) + (effect.search('&#123;template') != -1 ? '</i>' : '') + (effect.length > 120 ? '&hellip;' : '') + '<br>';
                 message += '</p><hr style="margin: 4px 12px;">';
             }
@@ -1296,9 +1305,13 @@ var DoorMaster = DoorMaster || (function () {
     },
 
     commandPingToken = function (msg) {
-        var parms = msg.content.split(/\s+/i);
-        if (parms[2] && parms[2] != '') {
-            var token = getObj('graphic', parms[2]);
+        var door, token_id, parms = msg.content.split(/\s+/i);
+        door = _.find(state['DoorMaster'].doors, function (x) { return x.id == parms[2]; });
+        if (door) {
+            if (parms[3] == 'door') token_id = door.open ? door.open_id : door.closed_id;
+            if (parms[3] == 'switch') token_id = door.open ? door.switch2_id : door.switch_id;
+            if (parms[3] == 'lock') token_id = door.lock_id;
+            var token = getObj('graphic', token_id);
             if (token) {
                 var gm_ids = [], players = findObjs({type: 'player', online: true});
                 _.each(players, function (player) {
@@ -1306,7 +1319,7 @@ var DoorMaster = DoorMaster || (function () {
                 });
                 sendPing(token.get('left'), token.get('top'), token.get('pageid'), null, false, gm_ids);
             } else showDialog('Ping Error', 'Token does not exist.', 'GM');
-        } else showDialog('Ping Error', 'Token ID missing.', 'GM');
+        } else showDialog('Ping Error', 'Invalid door ID.', 'GM');
     },
 
     // Get all player controlled characters that are not "utility characters"
