@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.5',
-    timestamp = 1583869205925,
+    var version = '4.5.1',
+    timestamp = 1583881926830,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -54,8 +54,7 @@ var DoorMaster = DoorMaster || (function () {
         log('--> DoorMaster v' + version + ' <-- Initialized');
 		if (debugMode) {
 			var d = new Date();
-			showDialog('Debug Mode', 'DoorMaster v' + version + ' loaded at ' + d.toLocaleTimeString() + '<br><a style=\'' + styles.textButton + '\' href="!door config">Show config</a>', 'GM');
-			//showDialog('', 'Timestamp: ' + d.valueOf(), 'GM');
+			showDialog('Debug Mode', 'DoorMaster v' + version + ' loaded at ' + d.toLocaleTimeString() + ' (timestamp: ' + d.valueOf() + ')<br><a style=\'' + styles.textButton + '\' href="!door config">Show config</a>', 'GM');
 		}
 
         if (createDoorChars()) {
@@ -527,7 +526,7 @@ var DoorMaster = DoorMaster || (function () {
                                         char_name = char.get('name');
                                         var roll_result = rollSkillCheck(die_mod, adv_dis);
                                         var roll_display = '<div style="' + styles.resultBox + '"><span style=\'' + styles.result + (roll_result.base == 1 ? 'color: red;' : (roll_result.base == 20 ? 'color: green;' : '')) + '\' title="' + roll_result.formula + '">' + roll_result.final + '</span> ' + roll_result.skill + (roll_result.adv_dis == '-1' ? ' <span style="cursor: pointer;" title="Disadvantage">[Dis]</span>' : (roll_result.adv_dis == '+1' ? ' <span style="cursor: pointer;" title="Advantage">[Adv]</span>' : '')) + '</div>';
-                                        var gm_display = roll_display.replace('</div>', ' vs. DC ' + door.breakDC + '</div>');
+                                        var gm_display = roll_display.replace('</div>', ' vs. DC ' + door.lockDC + '</div>');
 
                                         if (roll_result.final >= door.lockDC) {
                                             title = 'Success!';
@@ -926,7 +925,6 @@ var DoorMaster = DoorMaster || (function () {
                         return;
                     }
 
-                    if (typeof door.case_sensitive == 'undefined') door.case_sensitive = true; // Retrofit
                     var chars = getCharsFromPlayerID(msg.playerid);
                     var correctPassphrase = door.case_sensitive ? passphrase == door.lock_passphrase : passphrase.toLowerCase() == door.lock_passphrase.toLowerCase();
                     if (correctPassphrase) {
@@ -1102,12 +1100,6 @@ var DoorMaster = DoorMaster || (function () {
         } else showDialog('Status Error', 'You must select a door or switch token.', 'GM');
 
         if (door) {
-            // Retrofit old doors when neccessary
-            if (typeof door.case_sensitive == 'undefined') door.case_sensitive = false;
-            if (typeof door.label == 'undefined') door.label = {door: 'door', switch: 'switch', dial: 'dial', tile: 'tile'};
-            if (typeof door.switch_hidden == 'undefined' || typeof door.switch_hidden == 'boolean') door.switch_hidden = {original: (typeof door.switch_hidden == 'boolean' ? door.switch_hidden : false), current: (typeof door.switch_hidden == 'boolean' ? door.switch_hidden : false)};
-            if (typeof door.lock_hidden == 'undefined' || typeof door.lock_hidden == 'boolean') door.lock_hidden = {original: (typeof door.lock_hidden == 'boolean' ? door.lock_hidden : false), current: (typeof door.lock_hidden == 'boolean' ? door.lock_hidden : false)};
-
             var actions = parms[3] ? parms[3].split('|') : [];
             switch (actions[0]) {
                 case '--token-lock':
@@ -1682,31 +1674,49 @@ var DoorMaster = DoorMaster || (function () {
     },
 
     runUpgrades = function () {
+        var count = 0;
         // 3.0 upgrade
         if (typeof state['DoorMaster'].doorCharID != 'undefined' && state['DoorMaster'].doorCharID != '') {
             var attrs = findObjs({type: 'ability', characterid: state['DoorMaster'].doorCharID}, {caseInsensitive: true});
             _.each(attrs, function (attr) {
+                if (attr.get('name') == 'Use Door' || attr.get('name') == 'Pick Lock' || attr.get('name') == 'Break Door') count++;
                 if (attr.get('name') == 'Use Door') attr.set({name: 'Use'});
                 if (attr.get('name') == 'Pick Lock') attr.set({name: 'Pick'});
                 if (attr.get('name') == 'Break Door') attr.set({name: 'Break'});
             });
         }
 
-        // 3.1 upgrade
-        if (_.size(state['DoorMaster'].doors) > 0) {
-            _.each(state['DoorMaster'].doors, function (door) {
-                if (typeof door.label == 'undefined') door.label = {door: 'door', switch: 'switch'};
-            });
-        }
-
-        // 4.1 upgrade
         _.each(state['DoorMaster'].doors, function (door) {
+            // 3.1 upgrade
+            if (typeof door.label == 'undefined' || typeof door.label.tile == 'undefined') {
+                door.label = {door: (typeof door.label.door == 'undefined' ? 'door' :  door.label.door), switch: (typeof door.label.switch == 'undefined' ? 'switch' :  door.label.switch), dial: 'dial', tile: 'tile'};
+                count++;
+            }
+            if (typeof door.switch_hidden == 'undefined' || typeof door.switch_hidden == 'boolean') {
+                door.switch_hidden = {original: (typeof door.switch_hidden == 'boolean' ? door.switch_hidden : false), current: (typeof door.switch_hidden == 'boolean' ? door.switch_hidden : false)};
+                count++;
+            }
+            if (typeof door.lock_hidden == 'undefined' || typeof door.lock_hidden == 'boolean') {
+                door.lock_hidden = {original: (typeof door.lock_hidden == 'boolean' ? door.lock_hidden : false), current: (typeof door.lock_hidden == 'boolean' ? door.lock_hidden : false)};
+                count++;
+            }
+
+            // 4.1 upgrade
             if (typeof door.created == 'undefined') {
                 var now = new Date();
                 door.created = now.valueOf();
                 if (door.condition == 'Barred') door.condition = 'Obstructed';
+                count++;
+            }
+
+            // 4.5 upgrade
+            if (door.has_key && typeof door.case_sensitive == 'undefined') {
+                door.case_sensitive = true;
+                count++;
             }
         });
+
+        if (count > 0) log((count == 1 ? '1 upgrade' : count + ' upgrades') + ' made on ' + _.size(state['DoorMaster'].doors) + ' doors.');
     },
 
     generateUniqueID = function () {
