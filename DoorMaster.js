@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.5.1',
-    timestamp = 1583881926830,
+    var version = '4.6',
+    timestamp = 1584466032717,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -1357,7 +1357,7 @@ var DoorMaster = DoorMaster || (function () {
                 var tmp_name = getAttrByName(char_id, 'repeating_skill_' + skill_id + '_name', 'current');
                 // Filter out known irrelevant skills
                 if (((tmp_name.match(/^thieve('s|s'|s)\s+tools$/i) || tmp_name == 'Sleight of Hand') && attribute == 'DEX')
-                    || ((tmp_name.match(/^portable\s+ram$/i) || tmp_name == 'Athletics') && attribute == 'STR')) {
+                    || ((tmp_name.match(/^portable\s+ram$/i) || tmp_name.match(/^crowbar$/i) || tmp_name == 'Athletics') && attribute == 'STR')) {
                     var tmp_mod = getAttrByName(char_id, 'repeating_skill_' + skill_id + '_total_with_sign', 'current') || '0';
                     if (tmp_name.match(/^portable\s+ram$/i)) tmp_mod = parseInt(tmp_mod) + 4; // Shaped sheet cannot add bonus or mod to skills
                     skills.push({name: tmp_name, mod: tmp_mod});
@@ -1367,12 +1367,15 @@ var DoorMaster = DoorMaster || (function () {
             if (attribute == 'STR') {
                 var ath_mod = getAttrByName(char_id, 'athletics_bonus', 'current') || '0';
                 skills.push({name: 'Athletics', mod: ath_mod});
-                var pRam = _.find(charAttrs, function (attr) { return (attr.get('name').match(/^repeating_tool_(.+)_toolname$/) !== null && attr.get('current').match(/^portable\s+ram$/i) != null); });
-                if (pRam) {
-                    var skill_id = pRam.get('name').replace(/^repeating_tool_([^_]+)_toolname$/, '$1');
-                    var tool_mod = getAttrByName(char_id, 'repeating_tool_' + skill_id + '_toolbonus', 'current') || '0';
-                    skills.push({name: 'Portable Ram', mod: tool_mod});
-                }
+                var tools = _.filter(charAttrs, function (attr) {
+                    return attr.get('name').match(/^repeating_tool_(.+)_toolname$/) !== null &&
+                    (attr.get('current').match(/^portable\s+ram$/i) != null || attr.get('current').match(/^crowbar$/i) != null);
+                    });
+                _.each(tools, function (tool) {
+                    var tool_id = tool.get('name').replace(/^repeating_tool_([^_]+)_toolname$/, '$1');
+                    var tool_mod = getAttrByName(char_id, 'repeating_tool_' + tool_id + '_toolbonus', 'current') || '0';
+                    skills.push({name: (tool.get('current').match(/^crowbar$/i) != null ? 'Crowbar' : 'Portable Ram'), mod: tool_mod});
+                });
             } else {
                 var soh_mod = getAttrByName(char_id, 'sleight_of_hand_bonus', 'current') || '0';
                 skills.push({name: 'Sleight of Hand', mod: soh_mod});
