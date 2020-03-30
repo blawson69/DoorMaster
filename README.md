@@ -1,6 +1,6 @@
 # DoorMaster
 
-> **New in 4.6:** Added the Crowbar to the relevant tools list for [skill checks](#skill-checks).
+> **New in 4.7:** Added the "Touch-Locked" [trigger](#triggers) and a "Master Lock" setting for [linked doors](#linked-doors).
 
 This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, make trapped doors with a variety of triggers, use various puzzle-type methods for unlocking doors, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. All related tokens can be locked to prevent them from accidentally being moved by players.
 
@@ -14,6 +14,7 @@ DoorMaster is for use with the [5e Shaped Sheet](http://github.com/mlenser/roll2
 - [Keyed Doors](#keyed-doors)
   - [Lock Tokens](#lock-tokens)
 - [Linked Doors](#linked-doors)
+  - [Flags](#flags)
 - [Trapped Doors](#trapped-doors)
   - [Triggers](#triggers)
   - [Disable DC](#disable-dc)
@@ -55,7 +56,7 @@ When you have all of the elements for your door, you select all of them and send
 Each door will have one of the following States. Typically, you will only use the first six when [creating a door](#door-creation). The last two are set by DoorMaster when certain conditions are met:
 - **Unlocked** - Players can open and close the door effortlessly.
 - **Locked** - The door has a lock that either needs a key or can be picked open.
-- **[Keyed](#keyed-doors)** - The door has a lock with which the player can interact. This status is **only** used to tell DoorMaster that the door is Keyed, and will be converted to the Locked State during door creation.
+- **[Keyed](#keyed-doors)** - The door has a lock with which the player can interact. This status is **only** used when setting up the Closed token to tell DoorMaster that the door is Keyed, and will be set to the Locked State during door creation.
 - **Barred** - This door is barred _on the player's side_. Clicking the [Use button](#doormaster-characters) will lift/remove the bar, setting the door to the Unlocked State.
 - **Obstructed** - This door is obstructed by a bar or other immovable objects _from the opposite side_. It cannot be picked or busted through. If the obstruction is a bar, the GM will need to change the State to Barred if players encounter the door from the other side.
 - **Stuck** -  This door is not locked, but won't open without being forced.
@@ -102,9 +103,10 @@ Linking doors in this way provides for any number of effects:
 - Make doors with *multiple switches.* Create two switched doors, and either hide the secondary door's tokens behind Dynamic Lighting lines or use transparent graphics to leave only the switch token accessible.
 - Make doors operated by other doors or switches *on another page.* Generate the status window for the master door, then jump to another page and link the door you want.
 
-Once you have linked doors, there is an "all-or-nothing" toggle. Setting this to "ON" will require all of the doors to be Unlocked before any of them will open. If set to "OFF", all Unlocked doors in the group will be opened/closed and the rest will be ignored. Broken doors are the exception for the toggle and will allow operation when all-or-nothing is ON. If there are any non-Unlocked secondary doors, the GM will be notified.
-
-The master door *must* be Unlocked to operate any secondary doors. If it is not, players will receive the standard feedback based on the master door's [State](#door-states).
+### Flags
+Once you have linked one or more doors, you will have the following options:
+- **All-or-Nothing** - When set to OFF (default), all Unlocked secondary doors will be opened/closed and the rest will be ignored. Setting this to ON will require all secondary doors to be Unlocked before _any_ of them will open. Broken doors are the exception and will allow operation when All-or-Nothing is ON. If there are any non-Unlocked secondary doors, the GM will be notified. The master door *must* be Unlocked to operate any secondary doors. If it is not, players will receive the standard feedback based on the master door's [State](#door-states).
+- **Master Lock** - Turning this setting ON lets all secondary doors be unlocked whenever the master door is unlocked. This flag overrides the "All-or-Nothing" flag for obvious reasons, and will need to be OFF in order to use the other flag. It will not change any other States on the secondary doors.
 
 ## Trapped Doors
 
@@ -134,6 +136,7 @@ A trigger is an action the player takes on the door that sets off the trap's eff
 - **Touch** - Any time a door is touched. This trigger is set off by **any** use of the Use, Pick, Break, _or Disable_ buttons and applies to all door States except Broken. If not using a [Lock token](#lock-tokens), using the Key button on the door will also trigger the trap.
 
   Note: This trigger supersedes **all** interactions. It is highly recommended to keep the trap reset function off (see above) when using this trigger.
+- **Touch-Locked** - Any time a door is touched when it is Locked. This trigger only works when using a [Lock token](#lock-tokens). If you have not set a Lock token, the trap will revert to using the Touch trigger.
 - **Pick** - Whenever is door's lock is picked, _whether or not_ the attempt is successful. Lockpicking traps only trigger when the actual attempt is made, so players will go through the entire [decision process](#doormaster-characters) until the Pick Lock button is executed for the selected character.
 - **Fail-Pick** - When an attempt to pick a lock fails. Successful attempts will not trip this trigger.
 - **Unlock** - When a door is unlocked, either by successfully picking the lock or by using _any other means_.
@@ -217,38 +220,17 @@ The "DoorMaster" characters are used for all visible doors and provide some comb
   The player will then be provided a "Break Open" button which will allow them to select the Strength skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to break a door.
 
    If the attempt to force the door open succeeds, there is a 20% chance to break the door (setting it to the Broken [State](#door-states)) completely, rendering the door useless. If a Locked door is forced open, there is also a 10% chance to destroy the lock (Disabled).
-- **Help** - Shows a help menu that explains the other token action buttons.
 
 - **Key** - This button prompts the player to enter a passphrase. If the passphrase is correct, the door will be unlocked. If the [key reset function](#keyed-doors) is off, this button will also allow the door to be locked using the passphrase as well.
 
 - **Disable** - This button allows an attempt to disable a trap. If the player controls more than one character, they will be asked to select which character is making the attempt. A "Disable Trap" button will then appear to allow them to select the Dexterity skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to disable a trap.
 
  If enabled in [config](#configuration), a fumble at disabling a trap will trigger the trap.
+- **Help** - Shows a help menu that explains the other token action buttons.
 
 ## Door Status
 
-You can see the stats for any door by using the `!door status` command with _any_ door token selected. You will be provided the following information:
-- Whether the door is open or closed
-- Re-label the door and switch. Enter a word for each to better represent the object. Change "door" to "chest", "switch" to "lever", etc. All player dialogs will use the new label.
-- The [State](#door-states) of the door (editable)
-- The [Visibility](#door-visibility) of the door (reveal only)
-- The current Lock DC (editable)
-- The current Break DC (editable)
-- Whether there is a Switch, and its visibility (reveal only)
-- If [keyed](#keyed-doors), whether the lock is enabled (enable only)
-- If keyed, shows the passphrase (editable)
-- If keyed, shows if Key Reset is on or off (toggle)
-- If [trapped](#trapped-doors), whether the trap is active (toggle)
-- If trapped, the current Disable DC (editable)
-- If trapped, a list of the Triggers
-- If trapped, whether the trap resets after it's triggered (toggle)
-- If trapped, whether the door is Broken after it's triggered (toggle)
-- If trapped, the beginning words of the effect
-- How many [Dials](#dials), if any, are in use with the door
-- How many [Tiles](#tiles) and/or Decoys, if any, are in use with the door
-- Whether the tokens are locked (lockable)
-
-You can also ping the door, switch and lock tokens to easily find those elements on a map that has many doors created.
+You can see the stats for any door by using the `!door status` command with _any_ door token selected. All post-creation modifications/updates to your doors are done through this dialog. You will be provided information about the door's State, locks, and traps, as well as links to lock tokens and to link other doors. You can also ping the door, switch and lock tokens to easily find those elements on a map that has many doors created or when you have placed locks, switches, dials, or tokens away from the door.
 
 ## Configuration
 
@@ -265,7 +247,7 @@ The Configuration Menu allows you to change these DoorMaster options:
 
 - **Door Interactions** - You can have all door interactions whispered to the players instead of being public. Note that trap effects will always been public, and character/skill decisions (except for the final result) will always be whispered. Default is Off.
 
-- **Obfuscate States** - By default the [State](#door-states) of the door is obfuscated so players do not definitively know what state the door is in. Turning this feature off will show the door's State in the title of the feedback dialog to players.
+- **Obfuscate States** - By default the [State](#door-states) of the door is obfuscated so players do not definitively know what State the door is in. Turning this feature off will show the door's State in the title of the feedback dialog to players.
 
 The Configuration Menu also tells you how many doors you've created so far, and will give a button for generating the DoorMaster macro if it has been accidentally deleted. This macro provides quick access to the oft-used [Status](#door-status), [Create](#door-creation), and [Destroy](#destroying-doors) commands.
 

@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.6',
-    timestamp = 1584466032717,
+    var version = '4.7',
+    timestamp = 1585591957279,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -135,7 +135,7 @@ var DoorMaster = DoorMaster || (function () {
     },
 
     commandConfig = function (msg) {
-        var message = '', err = '', parms = msg.content.replace('!hm config ', '').split(/\s*\-\-/i);
+        var message = '', err = '', parms = msg.content.split(/\s*\-\-/i);
         _.each(parms, function (x) {
             var action = x.trim().split(/\s*\|\s*/i);
             if (action[0] == 'aura-color') {
@@ -299,6 +299,13 @@ var DoorMaster = DoorMaster || (function () {
                 new_door.case_sensitive = true;
                 new_door.key_char_id = state['DoorMaster'].doorCharID;
                 if (new_door.lock_passphrase == '') new_door.lock_passphrase = 'Open sesame';
+                if (typeof new_door.lock_id == 'undefined' && typeof new_door.trap != 'undefined') {
+                    var new_triggers = [];
+                    _.each(new_door.trap['triggers'], function (x) {
+                        new_triggers.push(x == 'Touch-Locked' ? 'Touch' : x);
+                    });
+                    new_door.trap['triggers'] = new_triggers;
+                }
             }
 
             if (new_door.switch_hidden) new_door.switch_hidden = {original: true, current: true};
@@ -319,28 +326,28 @@ var DoorMaster = DoorMaster || (function () {
                         if (typeof new_door.switch2_id != 'undefined' && token.get('id') == new_door.switch2_id) token.set({layer: 'walls'});
 
                         // Set auras & assign characters
-                        if (new_door.hidden) {
-                            if (token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id) token.set(hidden_aura_settings);
-                        } else {
-                            if ((token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id) && state['DoorMaster'].useAura) token.set(aura_settings);
-                            if (token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id) token.set({represents: state['DoorMaster'].doorCharID});
+                        if (token.get('id') == new_door.open_id || token.get('id') == new_door.closed_id) {
+                            if (new_door.hidden) token.set(hidden_aura_settings);
+                            else {
+                                token.set({represents: state['DoorMaster'].doorCharID});
+                                token.set(aura_settings);
+                            }
                         }
 
-                        if (new_door.switch_hidden['current']) {
-                            if (token.get('id') == new_door.switch_id) token.set(hidden_aura_settings);
-                            if (token.get('id') == new_door.switch2_id) token.set(hidden_aura_settings);
-                        } else {
-                            if (token.get('id') == new_door.switch_id) token.set({represents: state['DoorMaster'].switchCharID});
-                            if (token.get('id') == new_door.switch2_id) token.set({represents: state['DoorMaster'].switchCharID});
-                            if (token.get('id') == new_door.switch_id && state['DoorMaster'].useAura) token.set(aura_settings);
-                            if (token.get('id') == new_door.switch2_id && state['DoorMaster'].useAura) token.set(aura_settings);
+                        if (token.get('id') == new_door.switch_id || token.get('id') == new_door.switch2_id) {
+                            if (new_door.switch_hidden['current']) token.set(hidden_aura_settings);
+                            else {
+                                token.set({represents: state['DoorMaster'].switchCharID});
+                                if (state['DoorMaster'].useAura) token.set(aura_settings);
+                            }
                         }
 
-                        if (new_door.lock_hidden['current']) {
-                            if (token.get('id') == new_door.lock_id) token.set(hidden_aura_settings);
-                        } else {
-                            if (token.get('id') == new_door.lock_id) token.set({represents: state['DoorMaster'].lockCharID});
-                            if (token.get('id') == new_door.lock_id && state['DoorMaster'].useAura) token.set(aura_settings);
+                        if (token.get('id') == new_door.lock_id) {
+                            if (new_door.lock_hidden['current']) token.set(hidden_aura_settings);
+                            else {
+                                token.set({represents: state['DoorMaster'].lockCharID});
+                                if (state['DoorMaster'].useAura) token.set(aura_settings);
+                            }
                         }
 
                         // Dials
@@ -371,17 +378,7 @@ var DoorMaster = DoorMaster || (function () {
         var triggers = [];
         _.each(str.split(','), function (tmp) {
             tmp = tmp.trim().toLowerCase();
-            if (tmp == 'open') triggers.push('Open');
-            if (tmp == 'touch') triggers.push('Touch');
-            if (tmp == 'pick') triggers.push('Pick');
-            if (tmp == 'fail-pick') triggers.push('Fail-Pick');
-            if (tmp == 'unlock') triggers.push('Unlock');
-            if (tmp == 'wrong-code') triggers.push('Wrong-Code');
-            if (tmp == 'misdial') triggers.push('Misdial');
-            if (tmp == 'all-misdial') triggers.push('All-Misdial');
-            if (tmp == 'misplace') triggers.push('Misplace');
-            if (tmp == 'all-misplace') triggers.push('All-Misplace');
-            if (tmp == 'decoy') triggers.push('Decoy');
+            if (tmp.match(/^(open|touch|touch-locked|pick|fail-pick|unlock|wrong-code|misdial|all-misdial|misplace|all-misplace|decoy)$/i) != null) triggers.push(initCap(tmp));
         });
         if (_.size(triggers) == 0) triggers = ['Open'];
         return triggers;
@@ -406,10 +403,15 @@ var DoorMaster = DoorMaster || (function () {
                 var title = '', message = '', triggered = false, door = _.find(state['DoorMaster'].doors, function (x) { return x.id == token.get('name'); });
                 if (door) {
                     var show_dialog = true, whispered = state['DoorMaster'].whisper;
-                    var chars = getCharsFromPlayerID(msg.playerid);
+                    var chars = getCharsFromPlayerID(msg.playerid, token.get('pageid'));
                     var char_name = _.size(chars) == 1 ? chars[0].get('name') : '';
 
                     if (triggeredTrap(door, ['Touch'])) {
+                        executeTrap(door, char_name);
+                        return;
+                    }
+
+                    if (triggeredTrap(door, ['Touch-Locked']) && door.condition == 'Locked') {
                         executeTrap(door, char_name);
                         return;
                     }
@@ -859,6 +861,7 @@ var DoorMaster = DoorMaster || (function () {
             if (_.size(door_ids) > 0) {
                 door.linked = door_ids;
                 door.all_or_nothing = false;
+                door.master_lock = false;
                 commandDoorStatus({content: '!door status ' + door.id}, (_.size(door_ids) == 1 ? '1 door was linked.' : _.size(door_ids) + ' doors were linked.'));
             } else commandDoorStatus({content: '!door status ' + door.id}, '⚠️ No door tokens were selected.');
         } else showDialog('Door Link Error', 'You must send a valid door ID.', 'GM');
@@ -925,7 +928,7 @@ var DoorMaster = DoorMaster || (function () {
                         return;
                     }
 
-                    var chars = getCharsFromPlayerID(msg.playerid);
+                    var chars = getCharsFromPlayerID(msg.playerid, token.get('pageid'));
                     var correctPassphrase = door.case_sensitive ? passphrase == door.lock_passphrase : passphrase.toLowerCase() == door.lock_passphrase.toLowerCase();
                     if (correctPassphrase) {
                         switch (door.condition) {
@@ -934,6 +937,12 @@ var DoorMaster = DoorMaster || (function () {
                                 if (door.key_reset) {
                                     if (typeof door.lock_id == 'undefined') enableKey(door, true);
                                     else enableLock(door, true);
+                                }
+                                if (door.master_lock) {
+                                    _.each(door.linked, function (id) {
+                                        var tmpDoor = _.find(state['DoorMaster'].doors, function (x) { return x.id == id; });
+                                        if (tmpDoor.condition == 'Locked') tmpDoor.condition = 'Unlocked';
+                                    });
                                 }
                                 showDialog('Key Used', 'Success! The door is now unlocked.', (state['DoorMaster'].whisper ? msg.who : ''));
                                 if (triggeredTrap(door, ['Unlock'])) executeTrap(door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
@@ -1003,7 +1012,7 @@ var DoorMaster = DoorMaster || (function () {
                 var title = '', message = '', triggered = false, door = _.find(state['DoorMaster'].doors, function (x) { return x.id == token.get('name'); });
                 if (door) {
                     var show_dialog = true, whispered = state['DoorMaster'].whisper;
-                    var chars = getCharsFromPlayerID(msg.playerid);
+                    var chars = getCharsFromPlayerID(msg.playerid, token.get('pageid'));
                     var char_name = _.size(chars) == 1 ? chars[0].get('name') : '';
 
                     if (triggeredTrap(door, ['Touch'])) {
@@ -1173,7 +1182,12 @@ var DoorMaster = DoorMaster || (function () {
                     break;
                 case '--toggle-aon':
                     door.all_or_nothing = !door.all_or_nothing;
-                    alert = 'All-or-nothing has been updated.';
+                    alert = 'All-or-Nothing has been updated.';
+                    break;
+                case '--toggle-master':
+                    door.master_lock = !door.master_lock;
+                    if (door.master_lock) door.all_or_nothing = false;
+                    alert = 'Master Lock setting has been updated.';
                     break;
                 case '--toggle-key-reset':
                     door.key_reset = !door.key_reset;
@@ -1290,7 +1304,12 @@ var DoorMaster = DoorMaster || (function () {
 
             message += '<p><b>Tokens locked?</b> ' + (door.tokens_locked ? 'Yes' : '<span style="color: #C91010;">No</span> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --token-lock" title="Lock all associated tokens">lock</a>') + '</p>';
             message += '<p><b>Linked Doors:</b> ' + (typeof door.linked != 'undefined' ? _.size(door.linked) : 'none') + ' <a style=\'' + styles.textButton + '\' href="!door link ' + door.id + '" title="Link selected door(s)">link</a><br>';
-            if (typeof door.linked != 'undefined') message += '<b>All-or-nothing?</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-aon" title="Turn all-or-nothing ' + (door.all_or_nothing ? 'OFF' : 'ON') + '">' + (door.all_or_nothing ? 'ON' : 'OFF') + '</a></p>';
+            if (typeof door.linked != 'undefined') {
+                if (door.master_lock) message += '<b>All-or-Nothing?</b> OFF<br>';
+                else  message += '<b>All-or-Nothing?</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-aon" title="Turn All-or-Nothing ' + (door.all_or_nothing ? 'OFF' : 'ON') + '">' + (door.all_or_nothing ? 'ON' : 'OFF') + '</a><br>';
+                message += '<b>Master Lock?</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-master" title="Turn Master Lock ' + (door.master_lock ? 'OFF' : 'ON') + '">' + (door.master_lock ? 'ON' : 'OFF') + '</a>';
+            }
+             message += '</p>';
 
             showDialog((door.open ? 'Open ' : 'Closed ') + initCap(door.label['door']), message, 'GM');
         } else showDialog('Door Status Error', 'Invalid ID.', 'GM');
@@ -1314,27 +1333,34 @@ var DoorMaster = DoorMaster || (function () {
         } else showDialog('Ping Error', 'Invalid door ID.', 'GM');
     },
 
-    // Get all player controlled characters that are not "utility characters"
-    getCharsFromPlayerID = function (player_id) {
-        var chars = findObjs({type: 'character', archived: false});
+    // Get all player controlled characters on the page that are not "utility characters"
+    getCharsFromPlayerID = function (player_id, page_id) {
+        var char_tokens = [], chars = findObjs({type: 'character', archived: false});
+        _.each(findObjs({type: 'graphic', pageid: page_id}), function (token) { if (token.get('represents') !== '') char_tokens.push(token.get('represents')); });
         chars = _.filter(chars, function (char) {
             var controllers = char.get('controlledby').split(',');
             var str_attr = findObjs({type: 'attribute', characterid: char.get('id'), name: 'strength'}, {caseInsensitive: true});
             var str = (_.size(str_attr) > 0) ? str_attr[0].get('current') : 0;
-            return (_.find(controllers, function (x) { return x == player_id; }) && parseInt(str) > 0);
+            return (_.find(controllers, function (x) { return x == player_id; }) && _.indexOf(char_tokens, char.get('id')) != -1 && parseInt(str) > 0);
         });
         return chars;
     },
 
     // Capitalizes the first letter of each word in a string
     initCap = function (str) {
-        var new_words = [], words = str.split(/\s+/g);
+        var new_words = [], separators = str.trim().split(/[^\s|-]+/g), words = str.trim().split(/[\s|\-]+/g);
         _.each(words, function (word) {
             var letters = word.split('');
             letters[0] = letters[0].toUpperCase();
             new_words.push(letters.join(''));
         });
-        return new_words.join(' ');
+        // separators have bogus entries first and last, so avoid them
+        var x = 1, newStr = new_words[0];
+        while (x < _.size(new_words)) {
+            newStr += separators[x] + new_words[x];
+            x++;
+        }
+        return newStr;
     },
 
     getSkills = function (char_id, attribute = 'DEX') {
@@ -1400,7 +1426,7 @@ var DoorMaster = DoorMaster || (function () {
         if (!doorCharExists()) {
             var char = createObj("character", {name: 'DoorMaster', controlledby: 'all'});
             var char_id = char.get('id');
-            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete or rename this character or your doors will not function.'});
 
             createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
             createObj("ability", { name: 'Pick', characterid: char_id, action: '!door pick', istokenaction: true });
@@ -1414,7 +1440,7 @@ var DoorMaster = DoorMaster || (function () {
         if (!doorKeyedCharExists()) {
             var char = createObj("character", {name: 'DoorMaster Keyed', controlledby: 'all'});
             var char_id = char.get('id');
-            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete or rename this character or your doors will not function.'});
 
             createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
             createObj("ability", { name: 'Key', characterid: char_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
@@ -1429,7 +1455,7 @@ var DoorMaster = DoorMaster || (function () {
         if (!switchCharExists()) {
             var char = createObj("character", {name: 'DoorMaster Switch', controlledby: 'all'});
             var char_id = char.get('id');
-            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete or rename this character or your doors will not function.'});
 
             createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
             createObj("ability", { name: 'Help', characterid: char_id, action: '!door help', istokenaction: true });
@@ -1441,7 +1467,7 @@ var DoorMaster = DoorMaster || (function () {
         if (!lockCharExists()) {
             var char = createObj("character", {name: 'DoorMaster Lock', controlledby: 'all'});
             var char_id = char.get('id');
-            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete or rename this character or your doors will not function.'});
 
             createObj("ability", { name: 'Key', characterid: char_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
             createObj("ability", { name: 'Pick', characterid: char_id, action: '!door pick', istokenaction: true });
@@ -1454,7 +1480,7 @@ var DoorMaster = DoorMaster || (function () {
         if (!trapCharExists()) {
             var char = createObj("character", {name: 'DoorMaster Trapped', controlledby: 'all'});
             var char_id = char.get('id');
-            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete or rename this character or your doors will not function.'});
 
             createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
             createObj("ability", { name: 'Pick', characterid: char_id, action: '!door pick', istokenaction: true });
@@ -1469,7 +1495,7 @@ var DoorMaster = DoorMaster || (function () {
         if (!trapKeyedCharExists()) {
             var char = createObj("character", {name: 'DoorMaster Trapped Keyed', controlledby: 'all'});
             var char_id = char.get('id');
-            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete this character or it will break the script.'});
+            char.set({bio: '<p>This character is used by the <b>DoorMaster</b> script. <i>Do not</i> delete or rename this character or your doors will not function.'});
 
             createObj("ability", { name: 'Use', characterid: char_id, action: '!door use', istokenaction: true });
             createObj("ability", { name: 'Key', characterid: char_id, action: '!door key ?{Enter Passphrase|}', istokenaction: true });
@@ -1488,10 +1514,10 @@ var DoorMaster = DoorMaster || (function () {
         var char = getObj('character', state['DoorMaster'].doorCharID);
         if (!char) {
             var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
-            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster'; });
+            char = _.find(allChars, function (x) { return x.get('name') == 'DoorMaster'; });
         }
         if (char) {
-            if (state['DoorMaster'].doorCharID == '') state['DoorMaster'].doorCharID = char.get('id');
+            state['DoorMaster'].doorCharID = char.get('id');
             return true;
         } else return false;
     },
@@ -1500,10 +1526,10 @@ var DoorMaster = DoorMaster || (function () {
         var char = getObj('character', state['DoorMaster'].doorKeyedCharID);
         if (!char) {
             var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
-            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Keyed'; });
+            char = _.find(allChars, function (x) { return x.get('name') == 'DoorMaster Keyed'; });
         }
         if (char) {
-            if (state['DoorMaster'].doorKeyedCharID == '') state['DoorMaster'].doorKeyedCharID = char.get('id');
+            state['DoorMaster'].doorKeyedCharID = char.get('id');
             return true;
         } else return false;
     },
@@ -1512,10 +1538,10 @@ var DoorMaster = DoorMaster || (function () {
         var char = getObj('character', state['DoorMaster'].trapCharID);
         if (!char) {
             var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
-            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Trapped'; });
+            char = _.find(allChars, function (x) { return x.get('name') == 'DoorMaster Trapped'; });
         }
         if (char) {
-            if (state['DoorMaster'].trapCharID == '') state['DoorMaster'].trapCharID = char.get('id');
+            state['DoorMaster'].trapCharID = char.get('id');
             return true;
         } else return false;
     },
@@ -1524,10 +1550,10 @@ var DoorMaster = DoorMaster || (function () {
         var char = getObj('character', state['DoorMaster'].trapKeyedCharID);
         if (!char) {
             var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
-            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Trapped Keyed'; });
+            char = _.find(allChars, function (x) { return x.get('name') == 'DoorMaster Trapped Keyed'; });
         }
         if (char) {
-            if (state['DoorMaster'].trapKeyedCharID == '') state['DoorMaster'].trapKeyedCharID = char.get('id');
+            state['DoorMaster'].trapKeyedCharID = char.get('id');
             return true;
         } else return false;
     },
@@ -1536,10 +1562,10 @@ var DoorMaster = DoorMaster || (function () {
         var char = getObj('character', state['DoorMaster'].switchCharID);
         if (!char) {
             var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
-            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Switch'; });
+            char = _.find(allChars, function (x) { return x.get('name') == 'DoorMaster Switch'; });
         }
         if (char) {
-            if (state['DoorMaster'].switchCharID == '') state['DoorMaster'].switchCharID = char.get('id');
+            state['DoorMaster'].switchCharID = char.get('id');
             return true;
         } else return false;
     },
@@ -1548,10 +1574,10 @@ var DoorMaster = DoorMaster || (function () {
         var char = getObj('character', state['DoorMaster'].lockCharID);
         if (!char) {
             var allChars = findObjs({type: 'character', archived: false}, {caseInsensitive: true});
-            char = _.find(allChars, function (char) { return char.get('name') == 'DoorMaster Lock'; });
+            char = _.find(allChars, function (x) { return x.get('name') == 'DoorMaster Lock'; });
         }
         if (char) {
-            if (state['DoorMaster'].lockCharID == '') state['DoorMaster'].lockCharID = char.get('id');
+            state['DoorMaster'].lockCharID = char.get('id');
             return true;
         } else return false;
     },
