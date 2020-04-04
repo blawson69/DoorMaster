@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.7.1',
-    timestamp = 1585591957279,
+    var version = '4.7.2',
+    timestamp = 1586021776242,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -465,13 +465,17 @@ var DoorMaster = DoorMaster || (function () {
                             char_name = char.get('name');
                             message = '<div style="' + styles.buttonWrapper + '">' + char_name + ': <a style="' + styles.button + '" href="!door break ' + char_id + ' ?{Select skill' + getSkills(char_id, 'STR') + '} ?{Advantage or Disadvantage|Neither,0|Advantage,+1|Disadvantage,-1}" title="' + char_name + ' will attempt to break the ' + door.label['door'] + ' open.">Break Open</a></div>';
                         } else {
-                            // If more than one character, make character selection
                             title = '', whispered = true;
-                            message = '<div style="' + styles.buttonWrapper + '"><a style="' + styles.button + '" href="!door break ?{Select character';
-                            _.each(chars, function (char) {
-                                message += '|' + char.get('name') + ',' + char.get('id');
-                            });
-                            message += '}" title="Please select which character is attempting to pick the lock.">Choose Character</a></div>';
+                            if (_.size(chars) == 0) {
+                                message = 'You have no playable characters with a token on this page.';
+                            } else {
+                                // If more than one character, make character selection
+                                message = '<div style="' + styles.buttonWrapper + '"><a style="' + styles.button + '" href="!door break ?{Select character';
+                                _.each(chars, function (char) {
+                                    message += '|' + char.get('name') + ',' + char.get('id');
+                                });
+                                message += '}" title="Please select which character is attempting to pick the lock.">Choose Character</a></div>';
+                            }
                         }
                     } else {
                         // Ignore Pick Lock from a disabled yet still selected Lock token
@@ -561,11 +565,15 @@ var DoorMaster = DoorMaster || (function () {
                                     } else {
                                         // If more than one character, make character selection
                                         title = '', whispered = true;
-                                        message = '<div style="' + styles.buttonWrapper + '"><a style="' + styles.button + '" href="!door pick ?{Select character';
-                                        _.each(chars, function (char) {
-                                            message += '|' + char.get('name') + ',' + char.get('id');
-                                        });
-                                        message += '}" title="Please select which character is attempting to pick the lock.">Choose Character</a></div>';
+                                        if (_.size(chars) == 0) {
+                                            message = 'You have no playable characters with a token on this page.';
+                                        } else {
+                                            message = '<div style="' + styles.buttonWrapper + '"><a style="' + styles.button + '" href="!door pick ?{Select character';
+                                            _.each(chars, function (char) {
+                                                message += '|' + char.get('name') + ',' + char.get('id');
+                                            });
+                                            message += '}" title="Please select which character is attempting to pick the lock.">Choose Character</a></div>';
+                                        }
                                     }
                                 }
                                 break;
@@ -1058,11 +1066,15 @@ var DoorMaster = DoorMaster || (function () {
                     } else {
                         // If more than one character, make character selection
                         title = '', whispered = true;
-                        message = '<div style="' + styles.buttonWrapper + '"><a style="' + styles.button + '" href="!door disable-trap ?{Select character';
-                        _.each(chars, function (char) {
-                            message += '|' + char.get('name') + ',' + char.get('id');
-                        });
-                        message += '}" title="Select which character is attempting to disable the trap.">Choose Character</a></div>';
+                        if (_.size(chars) == 0) {
+                            message = 'You have no playable characters with a token on this page.';
+                        } else {
+                            message = '<div style="' + styles.buttonWrapper + '"><a style="' + styles.button + '" href="!door disable-trap ?{Select character';
+                            _.each(chars, function (char) {
+                                message += '|' + char.get('name') + ',' + char.get('id');
+                            });
+                            message += '}" title="Select which character is attempting to disable the trap.">Choose Character</a></div>';
+                        }
                     }
                     if (show_dialog) showDialog(title, message, (whispered ? msg.who : ''));
 
