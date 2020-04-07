@@ -234,7 +234,7 @@ You can see detailed stats for any door by using the `!door status` command with
 You can re-label the doors and [switches](#switches) to better represent the object in use. For instance, a door may be a porthole or a stone slab. A switch might actually be a floor tile that gets depressed, or a statue's arm that works as a lever. To change labels, click the current label and provide a new one.
 
 ### Pinging Tokens
-You may have door elements scattered across your map, particularly when using [switches](#switches) and [lock tokens](#lock-tokens). To enable location of all elements of a door, a map pin icon link (📍) is located next to the State, Switch, and External Lock output in the Status window to ping the door, switch and lock tokens, respectively.
+You may have door elements scattered across your map, particularly when using [switches](#switches) and [lock tokens](#lock-tokens). To enable location of all elements of a door, a map pin icon link (📍) is located next to the State, Switch, and External Lock output in the Status window to ping the door, switch and lock tokens, respectively. This ping is visible to the GM only.
 
 ## Configuration
 
