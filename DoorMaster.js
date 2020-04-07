@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.7.2',
-    timestamp = 1586021776242,
+    var version = '4.7.3',
+    timestamp = 1586285338121,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -411,7 +411,7 @@ var DoorMaster = DoorMaster || (function () {
                         return;
                     }
 
-                    if (triggeredTrap(door, ['Touch-Locked']) && door.condition == 'Locked') {
+                    if (triggeredTrap(door, ['Touch-Locked']) && door.condition == 'Locked' && token.get('id') == door.closed_id) {
                         executeTrap(door, char_name);
                         return;
                     }
@@ -1257,7 +1257,7 @@ var DoorMaster = DoorMaster || (function () {
             }
 
             message += '<p>';
-            message += '<b>Condition:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set Condition|Unlocked|Locked|Barred|Obstructed|Stuck|Disabled}" title="Change condition">' + door.condition + '</a> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.id + ' door" title="Ping door token">📍</a><br>';
+            message += '<b>State:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set State|Unlocked|Locked|Barred|Obstructed|Stuck|Disabled}" title="Change state">' + door.condition + '</a> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.id + ' door" title="Ping door token">📍</a><br>';
             message += '<b>Visibility:</b> ' + (door.hidden ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-door" title="Reveal ' + door.label['door'] + ' to players">' + door.visibility + '</a>' : door.visibility) + '<br>';
             message += '<b>Door Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-door|?{Label|' + door.label['door'] + '}" title="Change door label">' + door.label['door'] + '</a><br>';
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
@@ -1364,7 +1364,7 @@ var DoorMaster = DoorMaster || (function () {
         var new_words = [], separators = str.trim().split(/[^\s|-]+/g), words = str.trim().split(/[\s|\-]+/g);
         _.each(words, function (word) {
             var letters = word.split('');
-            letters[0] = letters[0].toUpperCase();
+            if (word.match(/^(a|an|the|of|for|from|on|by|to|with|nor|yet|but|so)$/) == null) letters[0] = letters[0].toUpperCase();
             new_words.push(letters.join(''));
         });
         // separators have bogus entries first and last, so avoid them

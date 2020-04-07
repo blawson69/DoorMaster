@@ -1,7 +1,5 @@
 # DoorMaster
 
-> **New in 4.7:** Added the "Touch-Locked" [trigger](#triggers) and a "Master Lock" setting for [linked doors](#linked-doors).
-
 This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, make trapped doors with a variety of triggers, use various puzzle-type methods for unlocking doors, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. All related tokens can be locked to prevent them from accidentally being moved by players.
 
 DoorMaster is for use with the [5e Shaped Sheet](http://github.com/mlenser/roll20-character-sheets/tree/master/5eShaped) and the D&D 5th Edition OGL Sheet.
@@ -47,7 +45,7 @@ You can use an optional token named "Broken" to depict the door in a broken, unu
 
 Paths for Dynamic Lighting are optional. You can use no paths at all for trapdoors, or provide more than one path for things like prison bars. These will all act as Dynamic Lighting lines in the Closed State, and will be disabled in the Open State.
 
-When you have all of the elements for your door, you select all of them and send the `!door create` command in chat. This assembles your door and closes it. A status window for the door will appear, where you can update or modify most of the door's settings. It will also allow you to lock all related tokens to prevent accidental movement or [link other doors](#linked-doors). You can return to this [Status window](#door-status) at any time.
+When you have all of the elements for your door, you select all of them and send the `!door create` command in chat. This assembles your door and closes it. A [Status window](#door-status) for the door will appear, where you can update or modify most of the door's settings. It will also allow you to lock all related tokens to prevent accidental movement or [link other doors](#linked-doors). You can return to this status window at any time.
 
 **Note:** The creation process replaces token names with the ID of the associated door. *Do not* rename tokens after your door is created or your door *will not* function.
 
@@ -186,7 +184,7 @@ You can create Dials using tokens set to "Is Drawing" from the Advanced context 
 
 All Dials will get a GM-only aura to indicate if they are in the correct rotation; a green aura means it is correct, and a red one indicates an incorrect position. When the door is unlocked, the Dials will be disabled and the auras will disappear.
 
-New [triggers](#triggers) have been added that allows you to set your trap to trigger on incorrect Dial settings.
+[Triggers](#triggers) are provided that allow you to set your [trapped door](#trapped-doors) to trigger on incorrect Dial settings.
 
 ## Tiles
 
@@ -200,7 +198,7 @@ You can create Tiles using tokens set to "Is Drawing" from the Advanced context 
 
 All Tiles will get a GM-only aura to indicate if they are in the correct position; a green aura means it is correct, and a red one indicates an incorrect position. When the door is unlocked, the Tiles will be disabled and the auras will disappear. Decoys will not get an aura regardless of their position.
 
-New [triggers](#triggers) have been added to let you to set your trap to trigger on incorrect Tile settings.
+[Triggers](#triggers) are provided to let you to set your [trapped door](#trapped-doors) to trigger on incorrect Tile settings.
 
 **Note:** You _cannot_ use Tiles along with Dials on the same door. If any Dials are set on a door, all Tile and Decoy tokens will be ignored.
 
@@ -210,7 +208,7 @@ DoorMaster characters are created automatically when you first install the scrip
 
 The "DoorMaster" characters are used for all visible doors and provide some combination of the following token action buttons:
 - **Use** - Use a door or switch. This should be the first button used. It will open and close Unlocked doors, and provides feedback on the State of the door if it cannot be opened.
-- **Pick** - This button begins the steps to make an attempt to pick a lock. If the player controls more than one character, they will be asked to select which character is making the attempt. The list of characters will only include characters to which the player has specifically been assigned control, i.e. no character with the "All Players" assignment.
+- **Pick** - This button begins the steps to make an attempt to pick a lock. If the player controls more than one character represented on the page, they will be asked to select which character is making the attempt. The list of characters will only include characters to which the player has specifically been assigned control, i.e. no character with the "All Players" assignment.
 
   The player will then be provided a "Pick Lock" button which will allow them to select the Dexterity skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to pick a lock.
 
@@ -219,18 +217,24 @@ The "DoorMaster" characters are used for all visible doors and provide some comb
 
   The player will then be provided a "Break Open" button which will allow them to select the Strength skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to break a door.
 
-   If the attempt to force the door open succeeds, there is a 20% chance to break the door (setting it to the Broken [State](#door-states)) completely, rendering the door useless. If a Locked door is forced open, there is also a 10% chance to destroy the lock (Disabled).
+  If the attempt to force the door open succeeds, there is a 20% chance to break the door (setting it to the Broken [State](#door-states)) completely, rendering the door useless. If a Locked door is forced open, there is also a 10% chance to destroy the lock (Disabled).
 
 - **Key** - This button prompts the player to enter a passphrase. If the passphrase is correct, the door will be unlocked. If the [key reset function](#keyed-doors) is off, this button will also allow the door to be locked using the passphrase as well.
 
 - **Disable** - This button allows an attempt to disable a trap. If the player controls more than one character, they will be asked to select which character is making the attempt. A "Disable Trap" button will then appear to allow them to select the Dexterity skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to disable a trap.
 
- If enabled in [config](#configuration), a fumble at disabling a trap will trigger the trap.
+  If enabled in [config](#configuration), a fumble at disabling a trap will trigger the trap.
 - **Help** - Shows a help menu that explains the other token action buttons.
 
 ## Door Status
 
-You can see the stats for any door by using the `!door status` command with _any_ door token selected. All post-creation modifications/updates to your doors are done through this dialog. You will be provided information about the door's State, locks, and traps, as well as links to lock tokens and to link other doors. You can also ping the door, switch and lock tokens to easily find those elements on a map that has many doors created or when you have placed locks, switches, dials, or tokens away from the door.
+You can see detailed stats for any door by using the `!door status` command with _any_ door token selected. This status window also comes up immediately upon [creating a new door](#door-creation). All post-creation modifications/updates to your doors are done through this dialog. You will be provided information about the door's State, locks, and traps, as well as links to lock tokens and to [link other doors](#linked-doors).
+
+### Labels
+You can re-label the doors and [switches](#switches) to better represent the object in use. For instance, a door may be a porthole or a stone slab. A switch might actually be a floor tile that gets depressed, or a statue's arm that works as a lever. To change labels, click the current label and provide a new one.
+
+### Pinging Tokens
+You may have door elements scattered across your map, particularly when using [switches](#switches) and [lock tokens](#lock-tokens). To enable location of all elements of a door, a map pin icon link (📍) is located next to the State, Switch, and External Lock output in the Status window to ping the door, switch and lock tokens, respectively.
 
 ## Configuration
 
