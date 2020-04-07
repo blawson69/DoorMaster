@@ -996,6 +996,7 @@ var DoorMaster = DoorMaster || (function () {
         }
 
         if (door.trap['break_door']) breakDoor(door);
+        if (door.trap['hidden']) revealDisableTrap(door);
         if (door.trap['disable_after_trigger']) door.trap['disabled'] = true;
         if (typeof door.trap_id != 'undefined') {
             var trap_token = getObj('graphic', door.trap_id);
