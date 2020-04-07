@@ -225,7 +225,7 @@ var DoorMaster = DoorMaster || (function () {
                             new_door.visibility = (token.get('bar1_max') == 'Secret' || token.get('bar1_max') == 'Concealed') ? token.get('bar1_max') : 'Visible';
                             new_door.hidden = (token.get('bar1_max') == 'Secret' || token.get('bar1_max') == 'Concealed');
                             new_door.lockDC = (isNum(token.get('bar2_value'))) ? parseInt(token.get('bar2_value')) : 12;
-                            new_door.breakDC = (isNum(token.get('bar2_max'))) ? parseInt(token.get('bar2_max')) : (new_door.condition == 'Barred' ? 30 : 15);
+                            new_door.breakDC = (isNum(token.get('bar2_max'))) ? parseInt(token.get('bar2_max')) : (new_door.condition == 'Obstructed' ? 30 : 15);
                             new_door.lock_passphrase = token.get('bar3_value').trim();
                             door_tokens.push({type: 'graphic', id: token.get('id')});
                             break;

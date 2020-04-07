@@ -29,7 +29,7 @@ DoorMaster is for use with the [5e Shaped Sheet](http://github.com/mlenser/roll2
 ---
 ## Door Creation
 
-There are a minimum of two tokens needed to create a door: A token named "Closed" representing the door in its closed State, and one named "Open" for when it is open. The Closed token will contain the startup information for the door. Aside from the name, you will set the [State](#door-states) of the door and its [Visibility](#door-visibility). You can also provide the "Lock DC" for when a player attempts to pick the lock. If none is provided, it will default to 12. The "Break DC" is used when a character attempts to open the door by force. If none is provided, it will default to 30 for Barred doors and 15 for all others. If making a Keyed door ([see below](#keyed-doors)), the Passphrase will be provided here.
+There are a minimum of two tokens needed to create a door: A token named "Closed" representing the door in its closed State, and one named "Open" for when it is open. The Closed token will contain the startup information for the door. Aside from the name, you will set the [State](#door-states) of the door and its [Visibility](#door-visibility). You can also provide the "Lock DC" for when a player attempts to pick the lock. If none is provided, it will default to 12. The "Break DC" is used when a character attempts to open the door by force. If none is provided, it will default to 30 for Obstructed doors and 15 for all others. If making a Keyed door ([see below](#keyed-doors)), the Passphrase will be provided here.
 
 Below is the information to provide and the field placement for each:
 
@@ -61,7 +61,7 @@ Each door will have one of the following States. Typically, you will only use th
 - **Disabled** - A disabled door has had its lock damaged. It cannot be unlocked with a key or by picking it.
 - **Broken** - A broken door has been damaged to the point it is unusable. These doors are always open and cannot be closed by any means. You *cannot* set this State during door creation.
 
-You can change the door's State at any time in the [Status window](#door-status) with any one of the door's tokens selected. Note that setting an open door to a Locked, Barred, or Stuck State will close that door as well.
+You can change the door's State at any time in the [Status window](#door-status) with any one of the door's tokens selected. Note that setting an open door to a Locked, Barred, Obstructed, or Stuck State will close that door as well.
 
 ## Door Visibility
 
