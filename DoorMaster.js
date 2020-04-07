@@ -14,7 +14,7 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.7.3',
+    var version = '4.7.4',
     timestamp = 1586285338121,
     debugMode = false,
     styles = {
