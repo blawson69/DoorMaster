@@ -117,7 +117,7 @@ You can create a door that is trapped by adding data to the "Open" door token be
 
 | GM Notes |
 | ---- |
-| Trigger Effect |
+| Trap Effect |
 
 Most traps must be manually reset once they have been triggered, while others do not need to be reset or have a mechanism that automatically resets the trap. Once your trapped door is created, you will be able to tell DoorMaster from the [Status window](#door-status) whether the trap should be automatically reset after it gets triggered. The default is Off. You can also reset the trap manually in the Status window.
 
