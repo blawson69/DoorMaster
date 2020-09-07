@@ -1,6 +1,8 @@
 # DoorMaster
 
-This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, make trapped doors with a variety of triggers, use various puzzle-type methods for unlocking doors, provide any number of paths to serve as Dynamic Lighting lines, include switches for alternative door control, and add a token to visually illustrate a broken door. All related tokens can be locked to prevent them from accidentally being moved by players.
+> **New in ver 4.8:** Now you can set a door to [automatically open](#auto-open) when unlocked for Keyed doors or when using Dials or Tiles.
+
+This [Roll20](http://roll20.net/) script provides a robust system of door creation and management. It allows players to interact with doors, attempt to pick locks, or try to break through doors. GMs can create hidden doors that can be revealed to players at any time, make trapped doors with a variety of triggers, use various puzzle-type methods for unlocking doors, provide any number of paths to serve as Dynamic Lighting lines, include Switches for alternative door control, and add a token to visually illustrate a broken door. All related tokens can be locked to prevent them from accidentally being moved by players.
 
 DoorMaster is for use with the [5e Shaped Sheet](http://github.com/mlenser/roll20-character-sheets/tree/master/5eShaped) and the D&D 5th Edition OGL Sheet.
 
@@ -21,8 +23,11 @@ DoorMaster is for use with the [5e Shaped Sheet](http://github.com/mlenser/roll2
   - [Tools](#tools)
 - [Dials](#dials)
 - [Tiles](#tiles)
-- [DoorMaster Characters](#doormaster-characters)
+- [User Actions](#user-actions)
 - [Door Status](#door-status)
+  - [Labels](#abels)
+  - [Pinging Tokens](#pinging-tokens)
+  - [Auto Open](#auto-open)
 - [Configuration](#configuration)
 - [Destroying Doors](#destroying-doors)
 
@@ -71,16 +76,17 @@ Even Unlocked doors that are Secret or Concealed will be undetectable by players
 
 ## Switches
 
-Switches are optional tokens that enable operation of the door from a remote location, be it across the room or down a hallway. Select a graphic you wish to use for the switch and name it "Switch". If you want to hide your Switch until a later time - it is concealed or otherwise hidden - put "Hidden" in the first Bar 1 field of the Switch token. The [Status window](#door-status) will provide a link for revealing the Switch.
+Switches are optional tokens that enable operation of the door from a remote location, be it across the room or down a hallway. Select a graphic you wish to use for the Switch and name it "Switch". If you want to hide your Switch until a later time - it is concealed or otherwise hidden - put "Hidden" in the first Bar 1 field of the Switch token. The [Status window](#door-status) will provide a link for revealing the Switch.
 
-If you want to have an "on/off" effect for your Switch, provide a second token named "Switch2". When the switch is used on an Unlocked door, DoorMaster will toggle between the two switch tokens.
+If you want to have an "on/off" effect for your Switch, provide a second token named "Switch2". When the Switch is used on an Unlocked door, DoorMaster will toggle between the two Switch tokens.
 
 ## Keyed Doors
 
 Doors can have "keys" to unlock them. These are passphrases - passwords or sentences - that you provide. To create such a door, use "Keyed" as the door [State](#door-states) during [door creation](#door-creation) and enter the passphrase you wish to use in the first Bar 3 box. Upon creation, the door will be Locked and you will have the following additional functionality in the [Status window](#door-status):
 - The ability to manually enable the use of a "Key" token action button. This button lets players enter a passphrase in an attempt to unlock the door. Until enabled, the door will only have the usual [token action buttons](#doormaster-characters) available. If a [Lock token](#lock-tokens) is being used, the "Key" button will appear there instead.
 - The passphrase will be displayed, which you can change at any time.
-- You can choose to remove the "Key" token action whenever the door is unlocked with the proper passphrase. By default this "Key Reset" function is OFF, allowing players to *lock* the door with the passphrase as well.
+- You can choose to remove the "Key" token action whenever the door is unlocked with the proper passphrase. By default this "Key Reset" function is OFF, allowing players to *re-lock* the door with the passphrase as well.
+- You can set the door to [automatically open](#auto-open) when the correct passphrase.
 
 Passphrases are case-sensitive by default and should be alphanumeric. You may use punctuation and spaces, but avoid characters used in URLs (colons, forward slashes, etc.). Passphrases do not have to be unique, but remember that entering a non-unique passphrase on one door will _not_ unlock other doors with the same passphrase. You can turn off case sensitivity in the Status window.
 
@@ -95,11 +101,11 @@ If you want to hide your Lock until a later time - it is concealed or otherwise 
 You can create a link to one or more other doors via the [Status window](#door-status). This makes the door referenced by the Status window the "master" door and all linked doors are "secondary" doors. When the master door is opened, the secondary doors are opened (as long as they are Unlocked). This is a one-way link, so opening a secondary door does not affect the master. Two-way connections can be made simply by linking the secondary door back to the master.
 
 Linking doors in this way provides for any number of effects:
-- Allow one switch to *control multiple doors.* Create switches for every door in the group, then hide all but the master switch behind Dynamic Lighting lines.
-- Create a lever that *changes walls in a labyrinth.* This is almost the same as the above, but all secondary doors are all Secret, Unlocked doors that act as walls and dividers in the labyrinth. Only the master door needs a switch.
+- Allow one Switch to *control multiple doors.* Create Switches for every door in the group, then hide all but the master Switch behind Dynamic Lighting lines.
+- Create a lever that *changes walls in a labyrinth.* This is almost the same as the above, but all secondary doors are all Secret, Unlocked doors that act as walls and dividers in the labyrinth. Only the master door needs a Switch.
 - *Create a puzzle* where players must make all the doors in the group opened or closed. Secondary doors are linked to the master and other secondary doors in such a way that only by using the doors in the correct sequence will have them all closed or open at once.
-- Make doors with *multiple switches.* Create two switched doors, and either hide the secondary door's tokens behind Dynamic Lighting lines or use transparent graphics to leave only the switch token accessible.
-- Make doors operated by other doors or switches *on another page.* Generate the status window for the master door, then jump to another page and link the door you want.
+- Make doors with *multiple Switches.* Create two Switched doors, and either hide the secondary door's tokens behind Dynamic Lighting lines or use transparent graphics to leave only the Switch token accessible.
+- Make doors operated by other doors or Switches *on another page.* Generate the status window for the master door, then jump to another page and link the door you want.
 
 ### Flags
 Once you have linked one or more doors, you will have the following options:
@@ -184,7 +190,7 @@ You can create Dials using tokens set to "Is Drawing" from the Advanced context 
 
 All Dials will get a GM-only aura to indicate if they are in the correct rotation; a green aura means it is correct, and a red one indicates an incorrect position. When the door is unlocked, the Dials will be disabled and the auras will disappear.
 
-[Triggers](#triggers) are provided that allow you to set your [trapped door](#trapped-doors) to trigger on incorrect Dial settings.
+[Triggers](#triggers) are provided that allow you to set your [trapped door](#trapped-doors) to trigger on incorrect Dial settings. You can also set the door to [automatically open](#auto-open) when unlocked.
 
 ## Tiles
 
@@ -198,16 +204,16 @@ You can create Tiles using tokens set to "Is Drawing" from the Advanced context 
 
 All Tiles will get a GM-only aura to indicate if they are in the correct position; a green aura means it is correct, and a red one indicates an incorrect position. When the door is unlocked, the Tiles will be disabled and the auras will disappear. Decoys will not get an aura regardless of their position.
 
-[Triggers](#triggers) are provided to let you to set your [trapped door](#trapped-doors) to trigger on incorrect Tile settings.
+[Triggers](#triggers) are provided to let you to set your [trapped door](#trapped-doors) to trigger on incorrect Tile settings. You can also set the door to [automatically open](#auto-open) when unlocked.
 
 **Note:** You _cannot_ use Tiles along with Dials on the same door. If any Dials are set on a door, all Tile and Decoy tokens will be ignored.
 
-## DoorMaster Characters
+## User Actions
 
 DoorMaster characters are created automatically when you first install the script, and are set on the appropriate tokens to allow players to interact with them. These characters are essential for player interaction and *must not be deleted.* Deleted DoorMaster characters will be re-created if the sandbox is restarted, but doors connected to the old character will lose functionality.
 
 The "DoorMaster" characters are used for all visible doors and provide some combination of the following token action buttons:
-- **Use** - Use a door or switch. This should be the first button used. It will open and close Unlocked doors, and provides feedback on the State of the door if it cannot be opened.
+- **Use** - Use a door or Switch. This should be the first button used. It will open and close Unlocked doors, and provides feedback on the State of the door if it cannot be opened.
 - **Pick** - This button begins the steps to make an attempt to pick a lock. If the player controls more than one character represented on the page, they will be asked to select which character is making the attempt. The list of characters will only include characters to which the player has specifically been assigned control, i.e. no character with the "All Players" assignment.
 
   The player will then be provided a "Pick Lock" button which will allow them to select the Dexterity skill to use for the attempt and to indicate if that character has Advantage or Disadvantage on the roll. The GM will be notified of all attempts to pick a lock.
@@ -231,10 +237,13 @@ The "DoorMaster" characters are used for all visible doors and provide some comb
 You can see detailed stats for any door by using the `!door status` command with _any_ door token selected. This status window also comes up immediately upon [creating a new door](#door-creation). All post-creation modifications/updates to your doors are done through this dialog. You will be provided information about the door's State, locks, and traps, as well as links to lock tokens and to [link other doors](#linked-doors).
 
 ### Labels
-You can re-label the doors and [switches](#switches) to better represent the object in use. For instance, a door may be a porthole or a stone slab. A switch might actually be a floor tile that gets depressed, or a statue's arm that works as a lever. To change labels, click the current label and provide a new one.
+You can re-label the doors, [Switches](#switches), [Dials](#dials), and [Tiles](#tiles) to better represent the object in use. For instance, a door may be a porthole or a stone slab. A Switch might actually be a floor tile that gets depressed, or a statue's arm that works as a lever. To change labels, click the current label and provide a new one.
 
 ### Pinging Tokens
-You may have door elements scattered across your map, particularly when using [switches](#switches) and [lock tokens](#lock-tokens). To enable location of all elements of a door, a map pin icon link (📍) is located next to the State, Switch, and External Lock output in the Status window to ping the door, switch and lock tokens, respectively. This ping is visible to the GM only.
+You may have door elements scattered across your map, particularly when using [Switches](#switches) and [Lock Tokens](#lock-tokens). To enable location of all elements of a door, a map pin icon link (📍) is located next to the State, Switch, and External Lock output in the Status window to ping the door, Switch and Lock Tokens, respectively. This ping is visible to the GM only.
+
+### Auto Open
+You can have some doors automatically open when unlocked by setting this to 'ON'. This enables passphrases, Dials, and Tiles to operate the door rather than requiring direct user action. For instance, shifting the walls of a maze based on speaking a magic word. Auto Open is _only_ available for [Keyed doors](#keyed-doors) and doors using [Dials](#dials) or [Tiles](#tiles). If the door has any [linked doors](#linked-doors), they _will not_ be opened automatically.
 
 ## Configuration
 

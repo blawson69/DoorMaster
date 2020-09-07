@@ -14,9 +14,9 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.7.4',
-    timestamp = 1586285338121,
-    debugMode = false,
+    var version = '4.8',
+    timestamp = 1599522602713,
+    debugMode = true,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
         title: 'padding: 0 0 6px 0; color: ##591209; font-size: 1.5em; font-weight: bold; font-variant: small-caps; font-family: "Times New Roman",Times,serif;',
@@ -942,6 +942,7 @@ var DoorMaster = DoorMaster || (function () {
                         switch (door.condition) {
                             case 'Locked':
                                 door.condition = 'Unlocked';
+                                if (door.auto_open) toggleDoorOpen(door);
                                 if (door.key_reset) {
                                     if (typeof door.lock_id == 'undefined') enableKey(door, true);
                                     else enableLock(door, true);
@@ -952,7 +953,7 @@ var DoorMaster = DoorMaster || (function () {
                                         if (tmpDoor.condition == 'Locked') tmpDoor.condition = 'Unlocked';
                                     });
                                 }
-                                showDialog('Key Used', 'Success! The door is now unlocked.', (state['DoorMaster'].whisper ? msg.who : ''));
+                                showDialog('Key Used', 'Success! The door is now unlocked' + (door.open ? ' and open' : '') + '.', (state['DoorMaster'].whisper ? msg.who : ''));
                                 if (triggeredTrap(door, ['Unlock'])) executeTrap(door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
                                 break;
                             case 'Unlocked':
@@ -1223,6 +1224,10 @@ var DoorMaster = DoorMaster || (function () {
                     door.case_sensitive = !door.case_sensitive;
                     alert = 'Passphrase is now case ' + (door.case_sensitive ? ' sensitive' : ' insensitive') + '.';
                     break;
+                case '--toggle-auto-open':
+                    door.auto_open = !door.auto_open;
+                    alert = 'Auto Lock is now ' + (door.auto_open ? ' ON' : ' OFF') + '.';
+                    break;
                 case '--label-door':
                     var label = msg.content.split(/\s*\|\s*/i);
                     if (label[1] && label[1].trim() != '') {
@@ -1259,6 +1264,11 @@ var DoorMaster = DoorMaster || (function () {
 
             message += '<p>';
             message += '<b>State:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set State|Unlocked|Locked|Barred|Obstructed|Stuck|Disabled}" title="Change state">' + door.condition + '</a> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.id + ' door" title="Ping door token">📍</a><br>';
+
+            if (door.condition == 'Locked' || door.condition == 'Keyed') {
+                message += '<b>Auto Open:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-auto-open" title="Turn auto open ' + (door.auto_open ? 'OFF' : 'ON') + '">' + (door.auto_open ? 'ON' : 'OFF') + '</a><br>';
+            }
+
             message += '<b>Visibility:</b> ' + (door.hidden ? '<a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --reveal-door" title="Reveal ' + door.label['door'] + ' to players">' + door.visibility + '</a>' : door.visibility) + '<br>';
             message += '<b>Door Label:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --label-door|?{Label|' + door.label['door'] + '}" title="Change door label">' + door.label['door'] + '</a><br>';
             message += '<b>Lock DC:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --lock-dc|?{Lock DC|' + door.lockDC + '}" title="Change lock DC">' + door.lockDC + '</a><br>';
@@ -1837,6 +1847,7 @@ var DoorMaster = DoorMaster || (function () {
                             var tile_token = getObj('graphic', tile.tile_id);
                             tile_token.set({aura2_radius: ''});
                         });
+                        if (door.auto_open) toggleDoorOpen(door);
                         showDialog('Unlocked', responses[randomInteger(_.size(responses))-1] );
                         if (triggeredTrap(door, ['Unlock'])) executeTrap(door, initCap(door.label['tile']) + ' Mover');
                     } else if (triggeredTrap(door, ['All-Misplace'])) executeTrap(door, initCap(door.label['tile']) + ' Mover');
@@ -1882,6 +1893,7 @@ var DoorMaster = DoorMaster || (function () {
                             var dial_token = getObj('graphic', dial.dial_id);
                             dial_token.set({aura2_radius: ''});
                         });
+                        if (door.auto_open) toggleDoorOpen(door);
                         showDialog('Unlocked', responses[randomInteger(_.size(responses))-1] );
                         if (triggeredTrap(door, ['Unlock'])) executeTrap(door, initCap(door.label['dial']) + ' Mover');
                     } else if (triggeredTrap(door, ['All-Misdial'])) executeTrap(door, initCap(door.label['dial']) + ' Mover');
