@@ -86,7 +86,7 @@ Doors can have "keys" to unlock them. These are passphrases - passwords or sente
 - The ability to manually enable the use of a "Key" token action button. This button lets players enter a passphrase in an attempt to unlock the door. Until enabled, the door will only have the usual [token action buttons](#doormaster-characters) available. If a [Lock token](#lock-tokens) is being used, the "Key" button will appear there instead.
 - The passphrase will be displayed, which you can change at any time.
 - You can choose to remove the "Key" token action whenever the door is unlocked with the proper passphrase. By default this "Key Reset" function is OFF, allowing players to *re-lock* the door with the passphrase as well.
-- You can set the door to [automatically open](#auto-open) when the correct passphrase.
+- You can set the door to [automatically open](#auto-open) when the correct passphrase is given.
 
 Passphrases are case-sensitive by default and should be alphanumeric. You may use punctuation and spaces, but avoid characters used in URLs (colons, forward slashes, etc.). Passphrases do not have to be unique, but remember that entering a non-unique passphrase on one door will _not_ unlock other doors with the same passphrase. You can turn off case sensitivity in the Status window.
 
