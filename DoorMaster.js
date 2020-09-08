@@ -14,8 +14,8 @@ var DoorMaster = DoorMaster || (function () {
 
     //---- INFO ----//
 
-    var version = '4.8',
-    timestamp = 1599522602713,
+    var version = '4.8.1',
+    timestamp = 1599594204104,
     debugMode = false,
     styles = {
         box:  'background-color: #fff; border: 1px solid #000; padding: 6px 8px; border-radius: 6px; margin-left: -40px; margin-right: 0px;',
@@ -953,16 +953,16 @@ var DoorMaster = DoorMaster || (function () {
                                         if (tmpDoor.condition == 'Locked') tmpDoor.condition = 'Unlocked';
                                     });
                                 }
-                                showDialog('Key Used', 'Success! The door is now unlocked' + (door.open ? ' and open' : '') + '.', (state['DoorMaster'].whisper ? msg.who : ''));
+                                showDialog('', 'Success! The door is now unlocked' + (door.open ? ' and open' : '') + '.', (state['DoorMaster'].whisper ? msg.who : ''));
                                 if (triggeredTrap(door, ['Unlock'])) executeTrap(door, (_.size(chars) == 1 ? chars[0].get('name') : ''));
                                 break;
                             case 'Unlocked':
                                 if (door.open) toggleDoorOpen(door);
                                 door.condition = 'Locked';
-                                showDialog('Key Used', 'This door is now locked.', (state['DoorMaster'].whisper ? msg.who : ''));
+                                showDialog('', 'This door is now locked.', (state['DoorMaster'].whisper ? msg.who : ''));
                                 break;
                             default:
-                                showDialog('Key Used', 'Using a key on this door makes no sense right now.', (state['DoorMaster'].whisper ? msg.who : ''));
+                                showDialog('', 'Using a key on this door makes no sense right now.', (state['DoorMaster'].whisper ? msg.who : ''));
                         }
                     } else {
                         var message = 'Passphrase "' + passphrase + '" is incorrect. The door remains ' + (door.condition == 'Locked' ? 'locked' : 'unlocked') + '.';
@@ -1265,7 +1265,7 @@ var DoorMaster = DoorMaster || (function () {
             message += '<p>';
             message += '<b>State:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --set-cond|?{Set State|Unlocked|Locked|Barred|Obstructed|Stuck|Disabled}" title="Change state">' + door.condition + '</a> <a style=\'' + styles.textButton + 'text-decoration: none;\' href="!door ping ' + door.id + ' door" title="Ping door token">📍</a><br>';
 
-            if (door.condition == 'Locked' || door.condition == 'Keyed') {
+            if (door.condition == 'Locked' && (typeof door.lock_id !== 'undefined' || typeof door.tiles !== 'undefined' || typeof door.dials !== 'undefined')) {
                 message += '<b>Auto Open:</b> <a style=\'' + styles.textButton + '\' href="!door status ' + door.id + ' --toggle-auto-open" title="Turn auto open ' + (door.auto_open ? 'OFF' : 'ON') + '">' + (door.auto_open ? 'ON' : 'OFF') + '</a><br>';
             }
 
@@ -1848,7 +1848,7 @@ var DoorMaster = DoorMaster || (function () {
                             tile_token.set({aura2_radius: ''});
                         });
                         if (door.auto_open) toggleDoorOpen(door);
-                        showDialog('Unlocked', responses[randomInteger(_.size(responses))-1] );
+                        showDialog('', responses[randomInteger(_.size(responses))-1] );
                         if (triggeredTrap(door, ['Unlock'])) executeTrap(door, initCap(door.label['tile']) + ' Mover');
                     } else if (triggeredTrap(door, ['All-Misplace'])) executeTrap(door, initCap(door.label['tile']) + ' Mover');
                 }
@@ -1894,7 +1894,7 @@ var DoorMaster = DoorMaster || (function () {
                             dial_token.set({aura2_radius: ''});
                         });
                         if (door.auto_open) toggleDoorOpen(door);
-                        showDialog('Unlocked', responses[randomInteger(_.size(responses))-1] );
+                        showDialog('', responses[randomInteger(_.size(responses))-1] );
                         if (triggeredTrap(door, ['Unlock'])) executeTrap(door, initCap(door.label['dial']) + ' Mover');
                     } else if (triggeredTrap(door, ['All-Misdial'])) executeTrap(door, initCap(door.label['dial']) + ' Mover');
                 }
